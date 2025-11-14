@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sistema de Asistencia y Nómina Pro</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body data-theme="light">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-gradient">
+      <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center" href="#">
+          <i class="fas fa-briefcase me-2"></i>
+          <span class="fw-bold">AttendancePro</span>
+        </a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarNav"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav ms-auto align-items-center">
+            <li class="nav-item">
+              <a class="nav-link active" href="#attendance">
+                <i class="fas fa-clock me-1"></i> Asistencia
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#payroll">
+                <i class="fas fa-dollar-sign me-1"></i> Nómina
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#reports">
+                <i class="fas fa-chart-bar me-1"></i> Reportes
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#settings">
+                <i class="fas fa-cog me-1"></i> Configuración
+              </a>
+            </li>
+            <li class="nav-item ms-3">
+              <button id="themeToggle" class="btn btn-sm btn-light">
+                <i class="fas fa-moon"></i>
+              </button>
+            </li>
+            <li class="nav-item ms-2">
+              <button id="exportData" class="btn btn-sm btn-outline-light">
+                <i class="fas fa-download me-1"></i> Exportar
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container-fluid py-4">
+      <div class="row">
+        <!-- Sidebar -->
+        <aside class="col-md-3 col-lg-2 d-none d-md-block sidebar">
+          <div class="card sticky-top">
+            <div class="card-body">
+              <div class="text-center mb-4">
+                <div class="avatar-lg mx-auto mb-3">
+                  <i class="fas fa-user-circle fa-4x text-primary"></i>
+                </div>
+                <h6 class="mb-0" id="currentUser">Administrador</h6>
+                <small class="text-muted">Super Admin</small>
+              </div>
+
+              <div class="quick-stats">
+                <h6 class="text-uppercase text-muted small mb-3">
+                  Resumen Rápido
+                </h6>
+                <div class="stat-item mb-3">
+                  <div class="d-flex justify-content-between">
+                    <small>Presentes hoy</small>
+                    <strong id="quickPresentToday">0</strong>
+                  </div>
+                </div>
+                <div class="stat-item mb-3">
+                  <div class="d-flex justify-content-between">
+                    <small>Ausentes</small>
+                    <strong id="quickAbsentToday">0</strong>
+                  </div>
+                </div>
+                <div class="stat-item mb-3">
+                  <div class="d-flex justify-content-between">
+                    <small>Llegadas tarde</small>
+                    <strong id="quickLateToday" class="text-warning">0</strong>
+                  </div>
+                </div>
+                <hr />
+                <div class="stat-item">
+                  <div class="d-flex justify-content-between">
+                    <small>Total empleados</small>
+                    <strong id="quickTotalEmployees">0</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-4">
+                <button
+                  class="btn btn-primary w-100 mb-2"
+                  data-bs-toggle="modal"
+                  data-bs-target="#employeeModal"
+                >
+                  <i class="fas fa-user-plus me-2"></i> Nuevo Empleado
+                </button>
+                <button
+                  class="btn btn-outline-primary w-100"
+                  id="quickAttendanceBtn"
+                >
+                  <i class="fas fa-clock me-2"></i> Registro Rápido
+                </button>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="col-md-9 col-lg-10">
+          <!-- Attendance Section -->
+          <section id="attendance" class="mb-5">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <div>
+                <h2 class="mb-1">
+                  <i class="fas fa-clock text-primary"></i> Control de
+                  Asistencia
+                </h2>
+                <p class="text-muted mb-0">
+                  Gestiona entradas, salidas y horarios del personal
+                </p>
+              </div>
+              <div class="text-end">
+                <div id="currentDateTime" class="fw-bold"></div>
+                <small class="text-muted">Hora actual del sistema</small>
+              </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="row mb-4">
+              <div class="col-md-3">
+                <div class="stat-card bg-gradient-success">
+                  <div class="stat-label">Presentes Hoy</div>
+                  <div class="stat-value" id="statPresentToday">0</div>
+                  <small
+                    ><i class="fas fa-users me-1"></i> Empleados activos</small
+                  >
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="stat-card bg-gradient-warning">
+                  <div class="stat-label">Llegadas Tarde</div>
+                  <div class="stat-value" id="statLateToday">0</div>
+                  <small
+                    ><i class="fas fa-exclamation-triangle me-1"></i> Después de
+                    9:00 AM</small
+                  >
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="stat-card bg-gradient-info">
+                  <div class="stat-label">Horas Promedio</div>
+                  <div class="stat-value" id="statAvgHours">0h</div>
+                  <small><i class="fas fa-clock me-1"></i> Por empleado</small>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="stat-card bg-gradient-danger">
+                  <div class="stat-label">Ausencias</div>
+                  <div class="stat-value" id="statAbsences">0</div>
+                  <small
+                    ><i class="fas fa-calendar-times me-1"></i> Este mes</small
+                  >
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Attendance Registration -->
+            <div class="card mb-4 shadow-sm">
+              <div class="card-header bg-primary text-white">
+                <i class="fas fa-stopwatch me-2"></i> Registro Rápido de
+                Asistencia
+              </div>
+              <div class="card-body">
+                <form id="attendanceForm" class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Empleado</label>
+                    <select id="employeeSelect" class="form-select" required>
+                      <option value="">Seleccionar empleado...</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Acción</label>
+                    <select id="actionSelect" class="form-select">
+                      <option value="entrada">🟢 Entrada</option>
+                      <option value="salida">🔴 Salida</option>
+                      <option value="break_start">☕ Inicio Break</option>
+                      <option value="break_end">🔄 Fin Break</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Hora (opcional)</label>
+                    <input type="time" class="form-control" id="manualTime" />
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">
+                      <i class="fas fa-check me-1"></i> Registrar
+                    </button>
+                  </div>
+                  <div class="col-12">
+                    <textarea
+                      class="form-control"
+                      id="attendanceNotes"
+                      rows="2"
+                      placeholder="Notas adicionales (opcional)"
+                    ></textarea>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <!-- Live Attendance -->
+            <div class="card mb-4 shadow-sm">
+              <div
+                class="card-header d-flex justify-content-between align-items-center"
+              >
+                <span
+                  ><i class="fas fa-list me-2"></i> Asistencia en Tiempo Real -
+                  Hoy</span
+                >
+                <div class="btn-group btn-group-sm">
+                  <button class="btn btn-outline-secondary" id="filterAll">
+                    Todos
+                  </button>
+                  <button class="btn btn-outline-success" id="filterPresent">
+                    Presentes
+                  </button>
+                  <button class="btn btn-outline-danger" id="filterAbsent">
+                    Ausentes
+                  </button>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-hover" id="todayAttendanceTable">
+                    <thead>
+                      <tr>
+                        <th>Empleado</th>
+                        <th>Entrada</th>
+                        <th>Salida</th>
+                        <th>Break</th>
+                        <th>Horas</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody id="todayRecords"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Absence Management -->
+            <div class="card mb-4 shadow-sm">
+              <div class="card-header">
+                <i class="fas fa-calendar-alt me-2"></i> Gestión de Ausencias y
+                Permisos
+              </div>
+              <div class="card-body">
+                <form id="absenceForm" class="row g-3 mb-4">
+                  <div class="col-md-3">
+                    <label class="form-label">Empleado</label>
+                    <select id="absenceEmployee" class="form-select" required>
+                      <option value="">Seleccionar...</option>
+                    </select>
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">Fecha Inicio</label>
+                    <input
+                      type="date"
+                      class="form-control"
+                      id="absenceDateStart"
+                      required
+                    />
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">Fecha Fin</label>
+                    <input
+                      type="date"
+                      class="form-control"
+                      id="absenceDateEnd"
+                      required
+                    />
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Tipo</label>
+                    <select id="absenceType" class="form-select">
+                      <option value="vacaciones">🏖️ Vacaciones</option>
+                      <option value="enfermedad">🤒 Enfermedad</option>
+                      <option value="personal">👤 Personal</option>
+                      <option value="permiso">📄 Permiso con goce</option>
+                      <option value="sin_goce">⚠️ Permiso sin goce</option>
+                    </select>
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-warning w-100">
+                      <i class="fas fa-plus me-1"></i> Registrar
+                    </button>
+                  </div>
+                  <div class="col-12">
+                    <textarea
+                      class="form-control"
+                      id="absenceReason"
+                      placeholder="Motivo de la ausencia"
+                      rows="2"
+                    ></textarea>
+                  </div>
+                </form>
+                <div id="absenceList"></div>
+              </div>
+            </div>
+
+            <!-- Schedule Management -->
+            <div class="card shadow-sm">
+              <div
+                class="card-header d-flex justify-content-between align-items-center"
+              >
+                <span
+                  ><i class="fas fa-calendar-week me-2"></i> Horarios y
+                  Turnos</span
+                >
+                <button class="btn btn-sm btn-primary" id="autoFillSchedule">
+                  <i class="fas fa-magic me-1"></i> Auto-llenar (9:00-18:00)
+                </button>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <div id="shiftsTable"></div>
+                </div>
+                <small class="text-muted mt-2 d-block">
+                  <i class="fas fa-info-circle me-1"></i> Haz clic en una celda
+                  para editar. Formato: 09:00-18:00 o "Libre"
+                </small>
+              </div>
+            </div>
+          </section>
+
+          <!-- Payroll Section -->
+          <section id="payroll" class="mb-5">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <div>
+                <h2 class="mb-1">
+                  <i class="fas fa-dollar-sign text-success"></i> Gestión de
+                  Nómina
+                </h2>
+                <p class="text-muted mb-0">
+                  Cálculo automático de salarios y bonificaciones
+                </p>
+              </div>
+            </div>
+
+            <!-- Payroll Calculator -->
+            <div class="card mb-4 shadow-sm">
+              <div class="card-header bg-success text-white">
+                <i class="fas fa-calculator me-2"></i> Calculadora de Nómina
+              </div>
+              <div class="card-body">
+                <form id="payrollForm" class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Empleado</label>
+                    <select id="payrollEmployee" class="form-select" required>
+                      <option value="">Seleccionar empleado...</option>
+                    </select>
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">Período</label>
+                    <select id="payrollPeriod" class="form-select">
+                      <option value="mensual">Mensual</option>
+                      <option value="quincenal">Quincenal</option>
+                      <option value="semanal">Semanal</option>
+                    </select>
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">Horas Trabajadas</label>
+                    <input
+                      type="number"
+                      class="form-control"
+                      id="hoursWorked"
+                      step="0.01"
+                      min="0"
+                    />
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">Tarifa/Hora ($)</label>
+                    <input
+                      type="number"
+                      class="form-control"
+                      id="hourlyRate"
+                      value="1500"
+                      step="0.01"
+                      min="0"
+                    />
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-success w-100">
+                      <i class="fas fa-calculator me-1"></i> Calcular
+                    </button>
+                  </div>
+                </form>
+
+                <div class="row mt-3">
+                  <div class="col-md-6">
+                    <button
+                      class="btn btn-outline-primary btn-sm"
+                      id="autoCalculateHours"
+                    >
+                      <i class="fas fa-sync me-1"></i> Auto-calcular desde
+                      asistencia
+                    </button>
+                  </div>
+                </div>
+
+                <div id="payrollResult"></div>
+              </div>
+            </div>
+
+            <!-- Bonuses and Deductions -->
+            <div class="row mb-4">
+              <div class="col-md-6">
+                <div class="card shadow-sm">
+                  <div class="card-header bg-info text-white">
+                    <i class="fas fa-gift me-2"></i> Bonificaciones
+                  </div>
+                  <div class="card-body">
+                    <form id="bonusForm" class="row g-3 mb-3">
+                      <div class="col-md-5">
+                        <select id="bonusEmployee" class="form-select" required>
+                          <option value="">Empleado...</option>
+                        </select>
+                      </div>
+                      <div class="col-md-4">
+                        <input
+                          type="number"
+                          class="form-control"
+                          id="bonusAmount"
+                          placeholder="Monto ($)"
+                          step="0.01"
+                          min="0"
+                          required
+                        />
+                      </div>
+                      <div class="col-md-3">
+                        <button type="submit" class="btn btn-info w-100">
+                          <i class="fas fa-plus"></i> Agregar
+                        </button>
+                      </div>
+                      <div class="col-12">
+                        <input
+                          type="text"
+                          class="form-control"
+                          id="bonusReason"
+                          placeholder="Concepto (ej: Productividad, Puntualidad)"
+                        />
+                      </div>
+                    </form>
+                    <div id="bonusList" class="small"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card shadow-sm">
+                  <div class="card-header bg-warning text-dark">
+                    <i class="fas fa-minus-circle me-2"></i> Deducciones
+                  </div>
+                  <div class="card-body">
+                    <form id="deductionForm" class="row g-3 mb-3">
+                      <div class="col-md-5">
+                        <select
+                          id="deductionEmployee"
+                          class="form-select"
+                          required
+                        >
+                          <option value="">Empleado...</option>
+                        </select>
+                      </div>
+                      <div class="col-md-4">
+                        <input
+                          type="number"
+                          class="form-control"
+                          id="deductionAmount"
+                          placeholder="Monto ($)"
+                          step="0.01"
+                          min="0"
+                          required
+                        />
+                      </div>
+                      <div class="col-md-3">
+                        <button type="submit" class="btn btn-warning w-100">
+                          <i class="fas fa-plus"></i> Agregar
+                        </button>
+                      </div>
+                      <div class="col-12">
+                        <input
+                          type="text"
+                          class="form-control"
+                          id="deductionReason"
+                          placeholder="Concepto (ej: Préstamo, Multa)"
+                        />
+                      </div>
+                    </form>
+                    <div id="deductionList" class="small"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Payment History -->
+            <div class="card shadow-sm">
+              <div
+                class="card-header d-flex justify-content-between align-items-center"
+              >
+                <span
+                  ><i class="fas fa-history me-2"></i> Historial de Pagos</span
+                >
+                <button class="btn btn-sm btn-success" id="exportPayroll">
+                  <i class="fas fa-file-excel me-1"></i> Exportar Excel
+                </button>
+              </div>
+              <div class="card-body">
+                <div class="row g-3 mb-3">
+                  <div class="col-md-3">
+                    <input
+                      type="text"
+                      id="payrollMonthFilter"
+                      class="form-control"
+                      placeholder="Filtrar por mes"
+                    />
+                  </div>
+                  <div class="col-md-3">
+                    <input
+                      type="number"
+                      id="payrollYearFilter"
+                      class="form-control"
+                      placeholder="Año"
+                    />
+                  </div>
+                  <div class="col-md-3">
+                    <select id="payrollEmployeeFilter" class="form-select">
+                      <option value="">Todos los empleados</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <button
+                      class="btn btn-outline-secondary w-100"
+                      id="clearPayrollFilters"
+                    >
+                      <i class="fas fa-times me-1"></i> Limpiar Filtros
+                    </button>
+                  </div>
+                </div>
+                <div id="payrollHistory"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Reports Section -->
+          <section id="reports" class="mb-5">
+            <h2 class="mb-4">
+              <i class="fas fa-chart-bar text-info"></i> Reportes y Estadísticas
+            </h2>
+
+            <!-- Chart Filters -->
+            <div class="card mb-4 shadow-sm">
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-3">
+                    <select id="reportMonth" class="form-select">
+                      <option value="">Todos los meses</option>
+                      <option value="enero">Enero</option>
+                      <option value="febrero">Febrero</option>
+                      <option value="marzo">Marzo</option>
+                      <option value="abril">Abril</option>
+                      <option value="mayo">Mayo</option>
+                      <option value="junio">Junio</option>
+                      <option value="julio">Julio</option>
+                      <option value="agosto">Agosto</option>
+                      <option value="septiembre">Septiembre</option>
+                      <option value="octubre">Octubre</option>
+                      <option value="noviembre">Noviembre</option>
+                      <option value="diciembre">Diciembre</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <select id="reportEmployee" class="form-select">
+                      <option value="">Todos los empleados</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <select id="reportType" class="form-select">
+                      <option value="hours">Horas Trabajadas</option>
+                      <option value="attendance">Asistencia</option>
+                      <option value="salary">Salarios</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <button class="btn btn.primary w-100" id="generateReport">
+                      <i class="fas fa-chart-line me-1"></i> Generar Reporte
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- KPIs -->
+            <div class="row mb-4" id="reportKPIs"></div>
+
+            <!-- Charts -->
+            <div class="row">
+              <div class="col-lg-8 mb-4">
+                <div class="card shadow-sm">
+                  <div class="card-header">
+                    <i class="fas fa-chart-bar me-2"></i> Gráfico Principal
+                  </div>
+                  <div class="card-body">
+                    <canvas id="mainChart" height="300"></canvas>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-4 mb-4">
+                <div class="card shadow-sm">
+                  <div class="card-header">
+                    <i class="fas fa-chart-pie me-2"></i> Distribución
+                  </div>
+                  <div class="card-body">
+                    <canvas id="pieChart" height="300"></canvas>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Detailed Report Table -->
+            <div class="card shadow-sm">
+              <div class="card-header">
+                <i class="fas fa-table me-2"></i> Reporte Detallado
+              </div>
+              <div class="card-body">
+                <div id="detailedReport"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Settings Section -->
+          <section id="settings" class="mb-5">
+            <h2 class="mb-4">
+              <i class="fas fa-cog text-secondary"></i> Configuración del
+              Sistema
+            </h2>
+
+            <div class="row">
+              <div class="col-lg-6 mb-4">
+                <div class="card shadow-sm">
+                  <div class="card-header">
+                    <i class="fas fa-building me-2"></i> Información de la
+                    Empresa
+                  </div>
+                  <div class="card-body">
+                    <form id="companySettingsForm">
+                      <div class="mb-3">
+                        <label class="form-label">Nombre de la Empresa</label>
+                        <input
+                          type="text"
+                          class="form-control"
+                          id="companyName"
+                          value="Mi Empresa S.A."
+                        />
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">Horario de Entrada</label>
+                        <input
+                          type="time"
+                          class="form-control"
+                          id="workStartTime"
+                          value="09:00"
+                        />
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">Horario de Salida</label>
+                        <input
+                          type="time"
+                          class="form-control"
+                          id="workEndTime"
+                          value="18:00"
+                        />
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label"
+                          >Tiempo de Tolerancia (minutos)</label
+                        >
+                        <input
+                          type="number"
+                          class="form-control"
+                          id="lateToleranceMinutes"
+                          value="15"
+                          min="0"
+                        />
+                      </div>
+                      <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> Guardar Configuración
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-lg-6 mb-4">
+                <div class="card shadow-sm">
+                  <div class="card-header">
+                    <i class="fas fa-money-bill-wave me-2"></i> Configuración de
+                    Nómina
+                  </div>
+                  <div class="card-body">
+                    <form id="payrollSettingsForm">
+                      <div class="mb-3">
+                        <label class="form-label"
+                          >Tarifa por Hora Base ($)</label
+                        >
+                        <input
+                          type="number"
+                          class="form-control"
+                          id="baseHourlyRate"
+                          value="1500"
+                          step="0.01"
+                        />
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label"
+                          >Horas Extras Requieren Aprobación</label
+                        >
+                        <select class="form-select" id="overtimeApproval">
+                          <option value="yes">Sí</option>
+                          <option value="no">No</option>
+                        </select>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label"
+                          >Porcentaje Impuestos (%)</label
+                        >
+                        <input
+                          type="number"
+                          class="form-control"
+                          id="taxPercentage"
+                          value="13"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                        />
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label"
+                          >Bono por Horas Extra (más de 160h)</label
+                        >
+                        <input
+                          type="number"
+                          class="form-control".
+                          id="overtimeBonus"
+                          value="5000"
+                          step="0.01"
+                        />
+                      </div>
+                      <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> Guardar Configuración
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Data Management -->
+            <div class="card shadow-sm mb-4">
+              <div class="card-header bg-danger text-white">
+                <i class="fas fa-database me-2"></i> Gestión de Datos
+              </div>
+              <div class="card-body">
+                <div class="row">
+                  <div class="col-md-6">
+                    <h6>Exportar Datos</h6>
+                    <p class="small text-muted">
+                      Descarga una copia de seguridad de todos los datos del
+                      sistema
+                    </p>
+                    <button class="btn btn-success" id="backupData">
+                      <i class="fas fa-download me-1"></i> Descargar Backup
+                      (JSON)
+                    </button>
+                  </div>
+                  <div class="col-md-6">
+                    <h6>Importar Datos</h6>
+                    <p class="small text-muted">
+                      Restaurar datos desde un archivo de respaldo
+                    </p>
+                    <input
+                      type="file"
+                      class="form-control mb-2"
+                      id="restoreFile"
+                      accept=".json"
+                    />
+                    <button class="btn btn-info" id="restoreData">
+                      <i class="fas fa-upload me-1"></i> Restaurar Backup
+                    </button>
+                  </div>
+                </div>
+                <hr />
+                <div class="row">
+                  <div class="col-12">
+                    <h6 class="text-danger">Zona de Peligro</h6>
+                    <p class="small text-muted">
+                      Estas acciones son irreversibles
+                    </p>
+                    <button class="btn btn-outline-danger" id="clearAllData">
+                      <i class="fas fa-trash me-1"></i> Borrar Todos los Datos
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Employee List Management -->
+            <div class="card shadow-sm">
+              <div
+                class="card-header d-flex justify-content-between align-items-center"
+              >
+                <span
+                  ><i class="fas fa-users me-2"></i> Gestión de Empleados</span
+                >
+                <button
+                  class="btn btn-sm btn-primary"
+                  data-bs-toggle="modal"
+                  data-bs-target="#employeeModal"
+                >
+                  <i class="fas fa-user-plus me-1"></i> Agregar Empleado
+                </button>
+              </div>
+              <div class="card-body">
+                <div id="employeeList"></div>
+              </div>
+            </div>
+
+            <!-- Department Management -->
+            <div class="card shadow-sm mt-4">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-building me-2"></i> Gestión de Departamentos</span>
+              </div>
+              <div class="card-body">
+                <form id="departmentForm" class="row g-3 mb-3">
+                  <div class="col-md-6">
+                    <input type="text" class="form-control" id="departmentName" placeholder="Nombre del departamento" required>
+                  </div>
+                  <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100"><i class="fas fa-plus me-1"></i> Agregar</button>
+                  </div>
+                </form>
+                <div id="departmentList"></div>
+              </div>
+            </div>
+
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-light text-center py-4 mt-5">
+      <div class="container">
+        <p class="mb-2">
+          <strong>AttendancePro</strong> - Sistema Profesional de Asistencia y
+          Nómina
+        </p>
+        <small class="text-muted"
+          >© 2025 Todos los derechos reservados | Desarrollado con ❤️</small
+        >
+      </div>
+    </footer>
+
+    <!-- Employee Modal -->
+    <div class="modal fade" id="employeeModal" tabindex="-1">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              <i class="fas fa-user-plus me-2"></i> Agregar Nuevo Empleado
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <form id="employeeForm">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Nombre Completo *</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="employeeName"
+                    required
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Puesto *</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="employeePosition"
+                    required
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Departamento *</label>
+                  <select class="form-select" id="employeeDepartment" required>
+                    <option value="">Seleccionar...</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Email</label>
+                  <input type="email" class="form-control" id="employeeEmail" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Teléfono</label>
+                  <input type="tel" class="form-control" id="employeePhone" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Fecha de Ingreso</label>
+                  <input
+                    type="date"
+                    class="form-control"
+                    id="employeeStartDate"
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Salario Base ($)</label>
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="employeeSalary"
+                    step="0.01"
+                    min="0"
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Tipo de Contrato</label>
+                  <select class="form-select" id="employeeContractType">
+                    <option value="tiempo_completo">Tiempo Completo</option>
+                    <option value="medio_tiempo">Medio Tiempo</option>
+                    <option value="temporal">Temporal</option>
+                    <option value="freelance">Freelance</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mt-4">
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-save me-1"></i> Guardar Empleado
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  data-bs-dismiss="modal"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Employee Modal -->
+    <div class="modal fade" id="editEmployeeModal" tabindex="-1">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              <i class="fas fa-user-edit me-2"></i> Editar Empleado
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <form id="editEmployeeForm">
+              <input type="hidden" id="editEmployeeId" />
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Nombre Completo *</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="editEmployeeName"
+                    required
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Puesto *</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="editEmployeePosition"
+                    required
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Departamento *</label>
+                  <select
+                    class="form-select"
+                    id="editEmployeeDepartment"
+                    required
+                  >
+                    <option value="">Seleccionar...</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Email</label>
+                  <input
+                    type="email"
+                    class="form-control"
+                    id="editEmployeeEmail"
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Estado</label>
+                  <select class="form-select" id="editEmployeeStatus">
+                    <option value="activo">Activo</option>
+                    <option value="inactivo">Inactivo</option>
+                    <option value="suspendido">Suspendido</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mt-4">
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-save me-1"></i> Guardar Cambios
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  data-bs-dismiss="modal"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div
+      id="toastContainer"
+      class="position-fixed bottom-0 end-0 p-3"
+      style="z-index: 11"
+    ></div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

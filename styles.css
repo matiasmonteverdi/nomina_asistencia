@@ -1,0 +1,448 @@
+/* ============================================
+   VARIABLES & RESET
+   ============================================ */
+:root {
+    --primary: #2563eb;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #3b82f6;
+    --dark: #1e293b;
+    --light: #f8fafc;
+    --border: #e2e8f0;
+    --transition: 0.3s ease;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* ============================================
+   BODY & LAYOUT
+   ============================================ */
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--light);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    transition: background-color var(--transition), color var(--transition);
+}
+
+main {
+    flex: 1;
+}
+
+/* ============================================
+   DARK THEME
+   ============================================ */
+body[data-theme="dark"] {
+    background: #0f172a;
+    color: #e2e8f0;
+}
+
+body[data-theme="dark"] .card {
+    background: #1e293b;
+    border-color: #334155;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body[data-theme="dark"] .table {
+    --bs-table-bg: #1e293b;
+    --bs-table-border-color: #334155;
+    --bs-table-striped-bg: #0f172a;
+    --bs-table-hover-bg: #1c2128;
+    color: #e2e8f0;
+}
+
+body[data-theme="dark"] .modal-content {
+    background: #1e293b;
+    color: #e2e8f0;
+}
+
+body[data-theme="dark"] .form-control,
+body[data-theme="dark"] .form-select {
+    background: #0f172a;
+    border-color: #334155;
+    color: #e2e8f0;
+}
+
+body[data-theme="dark"] .form-control:focus,
+body[data-theme="dark"] .form-select:focus {
+    background: #0f172a;
+    border-color: var(--primary);
+    color: #e2e8f0;
+}
+
+body[data-theme="dark"] .btn-close {
+    filter: invert(1);
+}
+
+body[data-theme="dark"] .bg-light {
+    background-color: #1e293b !important;
+}
+
+body[data-theme="dark"] .text-muted {
+    color: #94a3b8 !important;
+}
+
+body[data-theme="dark"] .border {
+    border-color: #334155 !important;
+}
+
+body[data-theme="dark"] .sidebar .card {
+    background: #1e293b;
+}
+
+body[data-theme="dark"] .quick-stats .stat-item {
+    border-bottom: 1px solid #334155;
+}
+
+body[data-theme="dark"] .time-badge {
+    background: #0f172a;
+    color: #e2e8f0;
+}
+
+body[data-theme="dark"] .empty-state {
+    color: #94a3b8;
+}
+
+body[data-theme="dark"] footer {
+    background: #1e293b !important;
+    border-top: 1px solid #334155;
+}
+
+/* ============================================
+   NAVBAR
+   ============================================ */
+.navbar {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 1rem 0;
+    background: linear-gradient(135deg, var(--primary) 0%, #1d4ed8 100%) !important;
+}
+
+.navbar-brand {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+.nav-link {
+    font-weight: 500;
+    transition: all var(--transition);
+    padding: 0.5rem 1rem !important;
+    border-radius: 8px;
+    margin: 0 0.25rem;
+}
+
+.nav-link:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-1px);
+}
+
+.nav-link.active {
+    background: rgba(255, 255, 255, 0.2);
+    font-weight: 600;
+}
+
+/* ============================================
+   CARDS
+   ============================================ */
+.card {
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    margin-bottom: 1.5rem;
+    transition: all var(--transition);
+    overflow: hidden;
+}
+
+.card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.card-header {
+    font-weight: 600;
+    border-bottom: 2px solid rgba(0, 0, 0, 0.05);
+    padding: 1rem 1.25rem;
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.shadow-sm {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+.btn {
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    transition: all var(--transition);
+    border: none;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary), #1d4ed8);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, var(--success), #059669);
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, var(--warning), #d97706);
+    color: white;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, var(--danger), #dc2626);
+}
+
+.btn-info {
+    background: linear-gradient(135deg, var(--info), #2563eb);
+}
+
+/* ============================================
+   STAT CARDS
+   ============================================ */
+.stat-card {
+    border-radius: 16px;
+    padding: 1.5rem;
+    color: white;
+    transition: transform var(--transition);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card:hover {
+    transform: scale(1.05);
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0.5rem 0;
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    opacity: 0.95;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.bg-gradient-success {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.bg-gradient-warning {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.bg-gradient-info {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+.bg-gradient-danger {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+}
+
+.bg-gradient {
+    background: linear-gradient(135deg, var(--primary) 0%, #1d4ed8 100%) !important;
+}
+
+/* ============================================
+   SIDEBAR
+   ============================================ */
+.sidebar {
+    padding-right: 1rem;
+}
+
+.sidebar .card {
+    border-radius: 16px;
+    position: sticky;
+    top: 1rem;
+}
+
+.avatar-lg {
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.quick-stats {
+    font-size: 0.9rem;
+}
+
+.stat-item {
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.stat-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+/* ============================================
+   EMPLOYEE CARDS
+   ============================================ */
+.employee-card {
+    transition: all var(--transition);
+    cursor: pointer;
+    position: relative;
+}
+
+.employee-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.employee-status {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid white;
+    z-index: 1;
+}
+
+.status-active {
+    background: var(--success);
+    box-shadow: 0 0 8px var(--success);
+}
+
+.status-away {
+    background: var(--warning);
+}
+
+.status-offline {
+    background: #94a3b8;
+}
+
+/* ============================================
+   TABLES
+   ============================================ */
+.table {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.table thead th {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.table-hover tbody tr {
+    transition: all var(--transition);
+}
+
+.table-hover tbody tr:hover {
+    background: rgba(37, 99, 235, 0.05);
+    transform: scale(1.01);
+}
+
+.table-responsive {
+    border-radius: 8px;
+    overflow: auto;
+}
+
+/* ============================================
+   BADGES
+   ============================================ */
+.badge {
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+
+/* ============================================
+   TIME BADGE
+   ============================================ */
+.time-badge {
+    font-family: 'Courier New', 'Consolas', monospace;
+    font-weight: 600;
+    padding: 0.25rem 0.75rem;
+    background: #f1f5f9;
+    border-radius: 6px;
+    display: inline-block;
+    font-size: 0.9rem;
+}
+
+/* ============================================
+   FORMS
+   ============================================ */
+.form-control,
+.form-select {
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    padding: 0.65rem 1rem;
+    transition: all var(--transition);
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.form-label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+/* ============================================
+   EDITABLE CONTENT
+   ============================================ */
+[contenteditable="true"] {
+    outline: 2px dashed transparent;
+    transition: all var(--transition);
+    padding: 0.5rem;
+    border-radius: 6px;
+    cursor: text;
+}
+
+[contenteditable="true"]:hover {
+    outline-color: rgba(37, 99, 235, 0.3);
+    background-color: rgba(37, 99, 235, 0.05);
+}
+
+[contenteditable="true"]:focus {
+    outline-color: var(--primary);
+    background-color: rgba(37, 99, 235, 0.1);
+}
+
+.shift-cell {
+    min-width: 100px;
+}
+
+/* ============================================
