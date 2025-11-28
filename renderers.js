@@ -2,8 +2,8 @@
 // RENDERERS - Renderización de vistas
 // ============================================
 
-import { UIComponents } from './ui-components.js';
-import { DateUtils, TimeCalculator, NumberUtils } from './utils.js';
+import * as UI from './ui-componentes.js';
+import * as Utils from './utils.js';
 import { ABSENCE_TYPES, DAYS_OF_WEEK } from './config.js';
 
 export class DashboardRenderer {
@@ -17,12 +17,12 @@ export class DashboardRenderer {
         const settings = this.services.stateManager.getSettings();
 
         const presentToday = new Set(
-            todayAttendance.filter(r => r.action === 'entrada').map(r => r.employeeId)
+            todayAttendance.filter(r => r.action.type === 'ENTRADA').map(r => r.employeeId)
         ).size;
 
         const lateToday = todayAttendance.filter(r =>
-            r.action === 'entrada' &&
-            TimeCalculator.isLate(r.timestamp, settings.workStartTime, settings.lateToleranceMinutes)
+            r.action.type === 'ENTRADA' &&
+            Utils.TimeCalculator.isLate(r.timestamp, settings.workStartTime, settings.lateToleranceMinutes)
         ).length;
 
         const absentToday = employees.length - presentToday;
@@ -35,89 +35,156 @@ export class DashboardRenderer {
 
     renderAttendanceStats() {
         const employees = this.services.employee.getAll();
-        const todayAttendance = this.services.attendance.getTodayRecords();
-        const settings = this.services.stateManager.getSettings();
+        const container = document.getElementById('attendanceStatsContainer');
 
-        const presentToday = new Set(
-            todayAttendance.filter(r => r.action === 'entrada').map(r => r.employeeId)
-        ).size;
-
-        const lateToday = todayAttendance.filter(r =>
-            r.action === 'entrada' &&
-            TimeCalculator.isLate(r.timestamp, settings.workStartTime, settings.lateToleranceMinutes)
-        ).length;
-
-        // Calculate average hours
-        const completedShifts = {};
-        todayAttendance.forEach(r => {
-            if (!completedShifts[r.employeeId]) completedShifts[r.employeeId] = [];
-            completedShifts[r.employeeId].push(r);
-        });
-
-        let totalHours = 0;
-        let shiftsCompleted = 0;
-        
-        Object.values(completedShifts).forEach(records => {
-            const hasEntry = records.some(r => r.action === 'entrada');
-            const hasExit = records.some(r => r.action === 'salida');
-            if (hasEntry && hasExit) {
-                totalHours += parseFloat(TimeCalculator.calculateWorkHours(records));
-                shiftsCompleted++;
-            }
-        });
-
-        const avgHours = shiftsCompleted > 0 
-            ? (totalHours / shiftsCompleted).toFixed(1) 
-            : 0;
-
-        // Count absences this month
-        const currentMonth = new Date().getMonth();
-        const currentYear = new Date().getFullYear();
-        const absencesThisMonth = this.services.absence.getByMonth(currentMonth, currentYear).length;
-
-        document.getElementById('statPresentToday').textContent = presentToday;
-        document.getElementById('statLateToday').textContent = lateToday;
-        document.getElementById('statAvgHours').textContent = avgHours + 'h';
-        document.getElementById('statAbsences').textContent = absencesThisMonth;
-    }
-}
-
-export class EmployeeRenderer {
-    constructor(services, eventHandlers) {
-        this.services = services;
-        this.eventHandlers = eventHandlers;
-    }
-
-    renderList() {
-        const container = document.getElementById('employeeList');
-        const employees = this.services.employee.getAll();
+        if (!container) return;
 
         if (employees.length === 0) {
-            container.innerHTML = UIComponents.createEmptyState(
-                'No hay empleados registrados. Comienza agregando tu primer empleado.',
-                'fa-users'
+            container.innerHTML = UI.UIComponents.createEmptyState(
+                'Aún no hay empleados',
+                'Agrega empleados para ver las estadísticas de asistencia.',
+                'fas fa-users'
             );
             return;
         }
 
-        container.innerHTML = '<div class="row">' +
-            employees.map(emp => UIComponents.createEmployeeCard(emp)).join('') +
-            '</div>';
+        const employeeStats = employees.map(emp => {
+            const totalHours = this.services.attendance.getTotalHoursWorked(emp.id);
+            const totalAbsences = this.services.absence.getTotalDaysOff(emp.id);
+            const totalLateChecks = this.services.attendance.getTotalLateChecks(emp.id);
 
-        // Add event listeners
-        container.querySelectorAll('.edit-employee').forEach(btn => {
+            const hoursFormatted = Utils.TimeCalculator.formatDuration(totalHours);
+
+            return `
+                <tr>
+                    <td>
+                        <i class="fas fa-user-circle me-2"></i> ${emp.name}
+                        <small class="text-muted d-block">${emp.position}</small>
+                    </td>
+                    <td><span class="badge bg-primary">${hoursFormatted}</span></td>
+                    <td><span class="badge bg-warning">${totalLateChecks}</span></td>
+                    <td><span class="badge bg-danger">${totalAbsences} días</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-info view-employee-detail" data-id="${emp.id}">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        container.innerHTML = UI.UIComponents.createTable(
+            ['Empleado', 'Horas Totales', 'Tardanzas', 'Ausencias', 'Detalle'],
+            employeeStats,
+            'No hay registros de asistencia detallados'
+        );
+
+        // Asumiendo que el controlador de empleados manejará la vista de detalle
+        container.querySelectorAll('.view-employee-detail').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const empId = parseInt(e.currentTarget.dataset.id);
-                this.eventHandlers.onEditEmployee(empId);
+                const employeeId = parseInt(e.currentTarget.dataset.id);
+                // Aquí se llamaría al controlador para abrir el modal o sección de detalle
+                // this.eventHandlers.onViewEmployeeDetail(employeeId); 
+                UI.NotificationManager.show(`Mostrando detalle del empleado ${employeeId}`, 'info');
+            });
+        });
+    }
+}
+
+export class EmployeeRenderer {
+    constructor(services, fullRenderCallback) {
+        this.services = services;
+        this.fullRenderCallback = fullRenderCallback;
+    }
+
+    renderList() {
+        const employees = this.services.employee.getAll();
+        const container = document.getElementById('employeeListContainer');
+
+        if (!container) return;
+
+        if (employees.length === 0) {
+            container.innerHTML = UI.UIComponents.createEmptyState(
+                'No hay empleados registrados',
+                'Utiliza el botón "Nuevo Empleado" para comenzar.',
+                'fas fa-user-plus'
+            );
+            return;
+        }
+
+        const cards = employees.map(emp => {
+            const statusClass = emp.status === 'activo' ? 'status-active bg-success' : 'status-offline bg-secondary';
+            const icon = emp.status === 'activo' ? '🟢' : '⚫';
+            const statusText = emp.status === 'activo' ? 'Activo' : 'Inactivo';
+
+            return `
+                <div class="col-sm-6 col-lg-4 col-xl-3 mb-4">
+                    <div class="card employee-card shadow-sm" data-id="${emp.id}" 
+                         data-bs-toggle="modal" data-bs-target="#editEmployeeModal">
+                        <div class="card-body text-center">
+                            <div class="employee-status ${statusClass}"></div>
+                            <i class="fas fa-user-circle fa-3x text-primary mb-2"></i>
+                            <h5 class="card-title">${emp.name}</h5>
+                            <p class="card-text text-muted mb-1">${emp.position}</p>
+                            <p class="card-text small mb-1">${emp.department}</p>
+                            <p class="card-text small">
+                                <span class="badge ${emp.status === 'activo' ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}">
+                                    ${icon} ${statusText}
+                                </span>
+                            </p>
+                            <div class="mt-3">
+                                <button class="btn btn-sm btn-outline-primary edit-employee-btn" data-id="${emp.id}">
+                                    <i class="fas fa-edit"></i> Editar
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger delete-employee-btn" data-id="${emp.id}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = `<div class="row">${cards}</div>`;
+
+        // Añadir listeners para el modal de edición
+        container.querySelectorAll('.edit-employee-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Evita que se dispare el modal del card
+                const id = parseInt(e.currentTarget.dataset.id);
+                this.populateEditModal(id);
+                const modal = UI.UIComponents.getModal('editEmployeeModal');
+                if (modal) modal.show();
             });
         });
 
-        container.querySelectorAll('.delete-employee').forEach(btn => {
+        // Añadir listeners para eliminar
+        container.querySelectorAll('.delete-employee-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const empId = parseInt(e.currentTarget.dataset.id);
-                this.eventHandlers.onDeleteEmployee(empId);
+                e.stopPropagation(); // Evita que se dispare el modal del card
+                const id = parseInt(e.currentTarget.dataset.id);
+                // Llamar al controlador para confirmar y eliminar
+                this.services.employee.delete(id);
+                this.fullRenderCallback();
             });
         });
+    }
+
+    populateEditModal(id) {
+        const employee = this.services.employee.getById(id);
+        if (!employee) return;
+
+        document.getElementById('editEmployeeId').value = employee.id;
+        document.getElementById('editEmployeeName').value = employee.name;
+        document.getElementById('editEmployeePosition').value = employee.position;
+        document.getElementById('editEmployeeDepartment').value = employee.department;
+        document.getElementById('editEmployeeEmail').value = employee.email;
+        document.getElementById('editEmployeePhone').value = employee.phone;
+        document.getElementById('editEmployeeStartDate').value = employee.startDate;
+        document.getElementById('editEmployeeSalary').value = employee.salary;
+        document.getElementById('editEmployeeContractType').value = employee.contractType;
+        document.getElementById('editEmployeeStatus').value = employee.status;
     }
 }
 
@@ -127,257 +194,273 @@ export class AttendanceRenderer {
     }
 
     renderTodayTable() {
-        const tbody = document.getElementById('todayRecords');
-        const employees = this.services.employee.getAll();
-        const todayAttendance = this.services.attendance.getTodayRecords();
+        const records = this.services.attendance.getTodayRecords();
+        const container = document.getElementById('attendanceTodayTable');
 
-        if (employees.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="7" class="text-center text-muted py-4">
-                        <i class="fas fa-users fa-3x mb-3 d-block"></i>
-                        No hay empleados registrados
-                    </td>
-                </tr>
-            `;
-            return;
-        }
+        if (!container) return;
 
-        const rows = employees.map(emp => {
-            const empRecords = todayAttendance.filter(r => r.employeeId === emp.id);
-            const entrada = empRecords.find(r => r.action === 'entrada');
-            const salida = empRecords.find(r => r.action === 'salida');
-            const breakRecords = empRecords.filter(r => r.action.includes('break'));
-
-            const hours = entrada && salida 
-                ? TimeCalculator.calculateWorkHours(empRecords) 
-                : '-';
-            
-            const status = entrada && !salida 
-                ? 'Presente' 
-                : entrada && salida 
-                    ? 'Completado' 
-                    : 'Ausente';
-            
-            const statusClass = entrada && !salida 
-                ? 'success' 
-                : entrada && salida 
-                    ? 'info' 
-                    : 'secondary';
-
-            return `
-                <td><strong>${emp.name}</strong><br><small class="text-muted">${emp.position}</small></td>
-                <td class="time-badge">${entrada ? DateUtils.formatTime(entrada.timestamp) : '-'}</td>
-                <td class="time-badge">${salida ? DateUtils.formatTime(salida.timestamp) : '-'}</td>
-                <td><small>${breakRecords.length > 0 ? breakRecords.length / 2 + ' breaks' : '-'}</small></td>
-                <td><strong>${hours}h</strong></td>
-                <td><span class="badge bg-${statusClass}">${status}</span></td>
-                <td>
-                    <button class="btn btn-sm btn-outline-primary view-details" data-emp-id="${emp.id}">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </td>
-            `;
-        });
-
-        tbody.innerHTML = rows.map(row => `<tr>${row}</tr>`).join('');
-    }
-}
-
-export class AbsenceRenderer {
-    constructor(services, eventHandlers) {
-        this.services = services;
-        this.eventHandlers = eventHandlers;
-    }
-
-    renderList() {
-        const container = document.getElementById('absenceList');
-        const absences = this.services.absence.getRecent(10);
-
-        if (absences.length === 0) {
-            container.innerHTML = UIComponents.createEmptyState(
-                'No hay ausencias registradas',
-                'fa-calendar-check'
+        if (records.length === 0) {
+            container.innerHTML = UI.UIComponents.createEmptyState(
+                'No hay registros de hoy',
+                'El primer empleado debe marcar su entrada.',
+                'fas fa-clock'
             );
             return;
         }
 
-        const rows = absences.map(absence => {
-            const typeConfig = ABSENCE_TYPES[absence.type.toUpperCase()] || ABSENCE_TYPES.VACACIONES;
-            return `
-                <td>${absence.employeeName}</td>
-                <td>${DateUtils.formatDate(absence.dateStart)}</td>
-                <td>${DateUtils.formatDate(absence.dateEnd)}</td>
-                <td>${absence.days} día(s)</td>
-                <td>${typeConfig.icon} ${absence.type}</td>
-                <td><small>${absence.reason || '-'}</small></td>
+        const rows = records.map(r => `
+            <tr>
+                <td>${r.employeeName}</td>
+                <td><span class="badge bg-${r.action.class}">${r.action.label}</span></td>
+                <td>${Utils.DateUtils.formatTime(r.timestamp)}</td>
+                <td>${r.notes || 'N/A'}</td>
                 <td>
-                    <button class="btn btn-sm btn-outline-danger delete-absence" data-id="${absence.id}">
+                    <button class="btn btn-sm btn-outline-danger delete-attendance-record" data-id="${r.id}">
                         <i class="fas fa-trash"></i>
                     </button>
                 </td>
-            `;
-        });
+            </tr>
+        `).join('');
 
-        container.innerHTML = UIComponents.createTable(
-            ['Empleado', 'Inicio', 'Fin', 'Días', 'Tipo', 'Motivo', 'Acción'],
+        container.innerHTML = UI.UIComponents.createTable(
+            ['Empleado', 'Acción', 'Hora', 'Notas', ''],
             rows,
-            'No hay ausencias'
+            'No hay registros de hoy'
         );
 
-        // Add delete listeners
-        container.querySelectorAll('.delete-absence').forEach(btn => {
+        container.querySelectorAll('.delete-attendance-record').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const absId = parseInt(e.currentTarget.dataset.id);
-                this.eventHandlers.onDeleteAbsence(absId);
+                const recordId = parseInt(e.currentTarget.dataset.id);
+                // Aquí se llamaría al controlador para eliminar
+                // this.eventHandlers.onDeleteRecord(recordId);
+                UI.NotificationManager.show(`Eliminar registro ${recordId}`, 'info');
+            });
+        });
+    }
+}
+
+export class AbsenceRenderer {
+    constructor(services, fullRenderCallback) {
+        this.services = services;
+        this.fullRenderCallback = fullRenderCallback;
+    }
+
+    renderList() {
+        const absences = this.services.absence.getAll();
+        const container = document.getElementById('absenceListContainer');
+
+        if (!container) return;
+
+        if (absences.length === 0) {
+            container.innerHTML = UI.UIComponents.createEmptyState(
+                'No hay ausencias registradas',
+                'Agrega una nueva ausencia para un empleado.',
+                'fas fa-calendar-times'
+            );
+            return;
+        }
+
+        const rows = absences.map(a => {
+            const typeInfo = ABSENCE_TYPES[a.type] || { icon: '❓', label: a.type };
+            const days = Utils.TimeCalculator.getDaysBetweenDates(a.startDate, a.endDate);
+            const statusClass = a.type === 'ENFERMEDAD' ? 'bg-danger' : 'bg-info';
+
+            return `
+                <tr>
+                    <td>${a.employeeName}</td>
+                    <td>${Utils.DateUtils.formatDate(a.startDate)}</td>
+                    <td>${Utils.DateUtils.formatDate(a.endDate)}</td>
+                    <td><span class="badge ${statusClass}">${typeInfo.icon} ${typeInfo.label}</span></td>
+                    <td>${days} día(s)</td>
+                    <td>${a.notes || 'N/A'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger delete-absence-record" data-id="${a.id}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        container.innerHTML = UI.UIComponents.createTable(
+            ['Empleado', 'Desde', 'Hasta', 'Tipo', 'Días', 'Notas', ''],
+            rows,
+            'No hay ausencias registradas'
+        );
+
+        container.querySelectorAll('.delete-absence-record').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const recordId = parseInt(e.currentTarget.dataset.id);
+                // Aquí se llamaría al controlador para eliminar
+                this.services.absence.deleteRecord(recordId);
+                this.fullRenderCallback();
             });
         });
     }
 }
 
 export class ShiftRenderer {
-    constructor(services, eventHandlers) {
+    constructor(services, fullRenderCallback) {
         this.services = services;
-        this.eventHandlers = eventHandlers;
+        this.fullRenderCallback = fullRenderCallback;
     }
 
     renderTable() {
-        const container = document.getElementById('shiftsTable');
-        const employees = this.services.employee.getActive();
-        const state = this.services.stateManager.getState();
-        const shifts = state.shifts;
+        const employees = this.services.employee.getAll();
+        const container = document.getElementById('shiftTableContainer');
+        const shifts = this.services.shift.getAll();
+
+        if (!container) return;
 
         if (employees.length === 0) {
-            container.innerHTML = UIComponents.createEmptyState(
-                'Agrega empleados para gestionar turnos',
-                'fa-calendar-week'
+            container.innerHTML = UI.UIComponents.createEmptyState(
+                'Sin empleados',
+                'Agrega un empleado para gestionar sus turnos.',
+                'fas fa-user-clock'
             );
             return;
         }
 
-        const rows = employees.map(emp => {
-            if (!shifts[emp.name]) {
-                shifts[emp.name] = {};
-                DAYS_OF_WEEK.forEach(day => shifts[emp.name][day] = '');
-            }
+        const headerRow = ['Empleado', ...DAYS_OF_WEEK, 'Acción'];
 
-            const cells = DAYS_OF_WEEK.map(day => {
-                const shift = shifts[emp.name][day] || '';
-                return `<td contenteditable="true" class="shift-cell" data-employee="${emp.name}" data-day="${day}">${shift}</td>`;
+        const rows = employees.map(emp => {
+            const shiftCells = DAYS_OF_WEEK.map(day => {
+                const shift = shifts[emp.id]?.[day];
+                const shiftText = shift ? `${shift.startTime} - ${shift.endTime}` : 'No Asignado';
+                return `<td class="shift-cell">${shiftText}</td>`;
             }).join('');
 
-            return `<td><strong>${emp.name}</strong></td>${cells}`;
-        });
+            return `
+                <tr>
+                    <td><i class="fas fa-user me-2"></i> ${emp.name}</td>
+                    ${shiftCells}
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary edit-shift-btn" data-id="${emp.id}">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
 
-        container.innerHTML = UIComponents.createTable(
-            ['Empleado', ...DAYS_OF_WEEK],
+        container.innerHTML = UI.UIComponents.createTable(
+            headerRow,
             rows,
-            'No hay turnos'
+            'No hay turnos asignados'
         );
 
-        // Add edit listeners
-        container.querySelectorAll('.shift-cell').forEach(cell => {
-            cell.addEventListener('blur', (e) => {
-                const employee = e.target.dataset.employee;
-                const day = e.target.dataset.day;
-                const shift = e.target.textContent.trim();
-                this.eventHandlers.onUpdateShift(employee, day, shift);
+        // Añadir listeners para editar
+        container.querySelectorAll('.edit-shift-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(e.currentTarget.dataset.id);
+                // Asumiendo que hay un modal para editar turnos
+                // this.populateEditModal(id);
+                // const modal = UI.UIComponents.getModal('editShiftModal');
+                // if (modal) modal.show();
+                UI.NotificationManager.show(`Función para editar turno del empleado ${id}`, 'info');
             });
         });
     }
 }
 
 export class PayrollRenderer {
-    constructor(services) {
+    constructor(services, fullRenderCallback) {
         this.services = services;
+        this.fullRenderCallback = fullRenderCallback;
     }
 
     renderHistory(filters = {}) {
-        const container = document.getElementById('payrollHistory');
-        const payroll = this.services.payroll.getPaymentHistory(filters);
+        const payments = this.services.payroll.getHistory(filters);
+        const container = document.getElementById('payrollHistoryTable');
 
-        if (payroll.length === 0) {
-            container.innerHTML = UIComponents.createEmptyState(
-                'No hay pagos registrados',
-                'fa-file-invoice-dollar'
+        if (!container) return;
+
+        if (payments.length === 0) {
+            container.innerHTML = UI.UIComponents.createEmptyState(
+                'No hay nóminas calculadas',
+                'Calcula la nómina para un empleado usando el formulario de arriba.',
+                'fas fa-calculator'
             );
             return;
         }
 
-        const rows = payroll.reverse().map(payment => `
-            <td>${payment.employeeName}</td>
-            <td>${payment.month}</td>
-            <td>${payment.period}</td>
-            <td>${payment.hours}h</td>
-            <td>$${payment.grossSalary.toFixed(2)}</td>
-            <td class="text-danger">-$${payment.taxes.toFixed(2)}</td>
-            <td class="text-success"><strong>$${payment.netSalary.toFixed(2)}</strong></td>
-        `);
+        const rows = payments.map(p => `
+            <tr>
+                <td>${p.employeeName}</td>
+                <td>${Utils.DateUtils.getMonthName(new Date(p.year, p.month - 1))} ${p.year}</td>
+                <td>${p.hours}h</td>
+                <td>${Utils.NumberUtils.formatCurrency(p.grossSalary)}</td>
+                <td>${Utils.NumberUtils.formatCurrency(p.taxes)}</td>
+                <td><span class="badge bg-success">${Utils.NumberUtils.formatCurrency(p.netSalary)}</span></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-info view-payroll-detail" data-id="${p.id}">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
 
-        container.innerHTML = UIComponents.createTable(
-            ['Empleado', 'Período', 'Tipo', 'Horas', 'Bruto', 'Impuestos', 'Neto'],
+        container.innerHTML = UI.UIComponents.createTable(
+            ['Empleado', 'Periodo', 'Horas', 'Salario Bruto', 'Impuestos', 'Salario Neto', 'Detalle'],
             rows,
-            'No hay pagos que coincidan'
+            'No hay registros de nómina'
         );
-    }
 
-    renderReceipt(payment) {
-        const container = document.getElementById('payrollResult');
-        container.innerHTML = UIComponents.createPayrollReceipt(payment);
+        container.querySelectorAll('.view-payroll-detail').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(e.currentTarget.dataset.id);
+                // Abrir modal de detalle
+                UI.NotificationManager.show(`Mostrando detalle de nómina ${id}`, 'info');
+            });
+        });
     }
 
     renderBonusList() {
-        const container = document.getElementById('bonusList');
-        const state = this.services.stateManager.getState();
-        const bonuses = state.bonuses;
+        const bonuses = this.services.payroll.getAllBonuses();
+        const container = document.getElementById('bonusListContainer');
 
-        if (Object.keys(bonuses).length === 0) {
-            container.innerHTML = '<p class="text-muted">No hay bonos pendientes</p>';
-            return;
-        }
+        if (!container) return;
 
-        const html = Object.entries(bonuses).map(([employee, bonusList]) => {
-            const total = NumberUtils.sumArray(bonusList.map(b => b.amount));
-            return `
-                <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
-                    <div>
-                        <strong>${employee}</strong>
-                        <br>
-                        <small class="text-muted">${bonusList.map(b => b.reason || 'Sin concepto').join(', ')}</small>
-                    </div>
-                    <span class="badge bg-info">$${total.toFixed(2)}</span>
-                </div>
-            `;
-        }).join('');
+        const rows = Object.entries(bonuses).flatMap(([employeeName, list]) =>
+            list.map(b => `
+                <tr>
+                    <td>${employeeName}</td>
+                    <td>${Utils.DateUtils.formatDate(b.date)}</td>
+                    <td><span class="badge bg-success">${Utils.NumberUtils.formatCurrency(b.amount)}</span></td>
+                    <td>${b.reason || 'N/A'}</td>
+                </tr>
+            `)
+        ).join('');
 
-        container.innerHTML = html;
+        container.innerHTML = UI.UIComponents.createTable(
+            ['Empleado', 'Fecha', 'Monto', 'Razón'],
+            rows,
+            'No hay bonos registrados'
+        );
     }
 
     renderDeductionList() {
-        const container = document.getElementById('deductionList');
-        const state = this.services.stateManager.getState();
-        const deductions = state.deductions;
+        const deductions = this.services.payroll.getAllDeductions();
+        const container = document.getElementById('deductionListContainer');
 
-        if (Object.keys(deductions).length === 0) {
-            container.innerHTML = '<p class="text-muted">No hay deducciones pendientes</p>';
-            return;
-        }
+        if (!container) return;
 
-        const html = Object.entries(deductions).map(([employee, deductionList]) => {
-            const total = NumberUtils.sumArray(deductionList.map(d => d.amount));
-            return `
-                <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
-                    <div>
-                        <strong>${employee}</strong>
-                        <br>
-                        <small class="text-muted">${deductionList.map(d => d.reason || 'Sin concepto').join(', ')}</small>
-                    </div>
-                    <span class="badge bg-warning">$${total.toFixed(2)}</span>
-                </div>
-            `;
-        }).join('');
+        const rows = Object.entries(deductions).flatMap(([employeeName, list]) =>
+            list.map(d => `
+                <tr>
+                    <td>${employeeName}</td>
+                    <td>${Utils.DateUtils.formatDate(d.date)}</td>
+                    <td><span class="badge bg-danger">${Utils.NumberUtils.formatCurrency(d.amount)}</span></td>
+                    <td>${d.reason || 'N/A'}</td>
+                </tr>
+            `)
+        ).join('');
 
-        container.innerHTML = html;
+        container.innerHTML = UI.UIComponents.createTable(
+            ['Empleado', 'Fecha', 'Monto', 'Razón'],
+            rows,
+            'No hay deducciones registradas'
+        );
     }
 }
 
@@ -388,27 +471,32 @@ export class DepartmentRenderer {
     }
 
     renderList() {
-        const container = document.getElementById('departmentList');
         const departments = this.services.department.getAll();
+        const container = document.getElementById('departmentListContainer');
+
+        if (!container) return;
 
         if (departments.length === 0) {
-            container.innerHTML = UIComponents.createEmptyState(
-                'No hay departamentos registrados',
-                'fa-building'
+            container.innerHTML = UI.UIComponents.createEmptyState(
+                'No hay departamentos',
+                'Agrega el primer departamento de tu empresa.',
+                'fas fa-building'
             );
             return;
         }
 
         const rows = departments.map(dep => `
-            <td>${dep.name}</td>
-            <td>
-                <button class="btn btn-sm btn-outline-danger delete-department" data-id="${dep.id}">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </td>
-        `);
+            <tr>
+                <td>${dep.name}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-danger delete-department" data-id="${dep.id}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
 
-        container.innerHTML = UIComponents.createTable(
+        container.innerHTML = UI.UIComponents.createTable(
             ['Nombre', 'Acciones'],
             rows,
             'No hay departamentos'
@@ -429,17 +517,53 @@ export class DepartmentRenderer {
         ];
 
         const departments = this.services.department.getAll();
-        const options = departments.map(dep => 
+        const options = departments.map(dep =>
             `<option value="${dep.name}">${dep.name}</option>`
         ).join('');
 
         selects.forEach(select => {
-            if(select) {
-                const firstOption = select.querySelector('option[value=""]');
-                select.innerHTML = '';
-                if (firstOption) select.appendChild(firstOption);
-                select.innerHTML += options;
+            if (select) {
+                // Guarda la primera opción (e.g., "Seleccionar...")
+                const firstOption = select.querySelector('option[value=""]')?.outerHTML || '';
+
+                // Limpia y re-añade la primera opción y las nuevas opciones
+                select.innerHTML = firstOption + options;
             }
+        });
+    }
+}
+
+export class SettingsRenderer {
+    constructor(services, fullRenderCallback) {
+        this.services = services;
+        this.fullRenderCallback = fullRenderCallback;
+    }
+
+    renderForm() {
+        const settings = this.services.stateManager.getSettings();
+        const form = document.getElementById('settingsForm');
+        if (!form) return;
+
+        // Populate fields
+        document.getElementById('settingsCompanyName').value = settings.companyName;
+        document.getElementById('settingsWorkStart').value = settings.workStartTime;
+        document.getElementById('settingsWorkEnd').value = settings.workEndTime;
+        document.getElementById('settingsLateTolerance').value = settings.lateToleranceMinutes;
+        document.getElementById('settingsHourlyRate').value = settings.baseHourlyRate;
+        document.getElementById('settingsTaxPercentage').value = settings.taxPercentage;
+        document.getElementById('settingsOvertimeBonus').value = settings.overtimeBonus;
+        document.getElementById('settingsOvertimeThreshold').value = settings.overtimeThreshold;
+
+        // Radio buttons
+        const radio = document.querySelector(`input[name="settingsOvertimeApproval"][value="${settings.overtimeApproval}"]`);
+        if (radio) radio.checked = true;
+
+        // Add event listeners for immediate updates (debounce is in controller)
+        form.querySelectorAll('input, select').forEach(element => {
+            element.removeEventListener('change', this.services.settings.controller.debouncedSave); // Elimina antes de agregar
+            element.addEventListener('change', this.services.settings.controller.debouncedSave);
+            element.removeEventListener('input', this.services.settings.controller.debouncedSave);
+            element.addEventListener('input', this.services.settings.controller.debouncedSave);
         });
     }
 }

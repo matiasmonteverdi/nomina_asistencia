@@ -36,11 +36,12 @@ export const DEFAULT_SETTINGS = {
     baseHourlyRate: CONFIG.DEFAULT_HOURLY_RATE,
     taxPercentage: CONFIG.TAX_RATE * 100,
     overtimeBonus: CONFIG.OVERTIME_BONUS,
+    overtimeThreshold: CONFIG.OVERTIME_THRESHOLD,
     overtimeApproval: 'no'
 };
 
 export const ABSENCE_TYPES = {
-    VACACIONES: { icon: '🖖️', label: 'Vacaciones' },
+    VACACIONES: { icon: '🏖️', label: 'Vacaciones' },
     ENFERMEDAD: { icon: '🤒', label: 'Enfermedad' },
     PERSONAL: { icon: '👤', label: 'Personal' },
     PERMISO: { icon: '📄', label: 'Permiso con goce' },
@@ -60,8 +61,6 @@ export const MONTHS = [
     'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
     'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
 ];
-
-
 
 export const CONTRACT_TYPES = [
     { value: 'tiempo_completo', label: 'Tiempo Completo' },

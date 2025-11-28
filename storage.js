@@ -54,62 +54,70 @@ export class StateManager {
     constructor() {
         this.state = this.loadState();
         this.settings = this.loadSettings();
-        this.listeners = [];
+        this.subscribers = new Set();
+        this.migrateState();
     }
 
     loadState() {
-        return {
+        const savedState = {
             employees: StorageService.get(STORAGE_KEYS.EMPLOYEES, []),
             attendance: StorageService.get(STORAGE_KEYS.ATTENDANCE, []),
             absences: StorageService.get(STORAGE_KEYS.ABSENCES, []),
             shifts: StorageService.get(STORAGE_KEYS.SHIFTS, {}),
             payroll: StorageService.get(STORAGE_KEYS.PAYROLL, []),
             bonuses: StorageService.get(STORAGE_KEYS.BONUSES, {}),
-            version: CONFIG.STORAGE_VERSION,
-            departments: StorageService.get(STORAGE_KEYS.DEPARTMENTS, [
-                { id: 1, name: 'Administración' },
-                { id: 2, name: 'Ventas' },
-                { id: 3, name: 'Producción' },
-                { id: 4, name: 'IT' },
-                { id: 5, name: 'RRHH' },
-                { id: 6, name: 'Finanzas' },
-                { id: 7, name: 'Marketing' }
-            ])
+            deductions: StorageService.get(STORAGE_KEYS.DEDUCTIONS, {}),
+            departments: StorageService.get(STORAGE_KEYS.DEPARTMENTS, []),
+            version: StorageService.get('version', '1.0') // Para la migración
         };
+        return savedState;
     }
 
     loadSettings() {
-        return StorageService.get(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
+        const savedSettings = StorageService.get(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
+        return { ...DEFAULT_SETTINGS, ...savedSettings };
     }
 
-    subscribe(listener) {
-        this.listeners.push(listener);
-        return () => {
-            this.listeners = this.listeners.filter(l => l !== listener);
-        };
+    migrateState() {
+        // Ejemplo de migración: si la versión es antigua, aplicar lógica de migración.
+        if (this.state.version !== CONFIG.STORAGE_VERSION) {
+            console.log(`Migrando datos de la versión ${this.state.version} a ${CONFIG.STORAGE_VERSION}...`);
+            // Lógica de migración aquí (ej: añadir nuevos campos por defecto a objetos existentes)
+
+            // Actualizar la versión
+            this.state.version = CONFIG.STORAGE_VERSION;
+            StorageService.set('version', CONFIG.STORAGE_VERSION);
+            this.notify();
+        }
+    }
+
+    subscribe(callback) {
+        this.subscribers.add(callback);
+        // Notificar inmediatamente para el renderizado inicial
+        callback(this.state);
+    }
+
+    unsubscribe(callback) {
+        this.subscribers.delete(callback);
     }
 
     notify() {
-        this.listeners.forEach(listener => {
-            try {
-                listener(this.state);
-            } catch (error) {
-                console.error('Error in state listener:', error);
-            }
-        });
+        this.subscribers.forEach(callback => callback(this.state, this.settings));
     }
 
-    updateState(updates) {
-        this.state = { ...this.state, ...updates };
-        Object.keys(updates).forEach(key => {
-            StorageService.set(key, updates[key]);
+    updateState(newState) {
+        // Actualiza el estado en memoria y guarda en localStorage
+        Object.keys(newState).forEach(key => {
+            this.state[key] = newState[key];
+            StorageService.set(key, this.state[key]);
         });
         this.notify();
     }
 
-    saveSettings(newSettings) {
+    updateSettings(newSettings) {
         this.settings = { ...this.settings, ...newSettings };
         StorageService.set(STORAGE_KEYS.SETTINGS, this.settings);
+        this.notify(); // Notifica para que los renderers que dependen de settings se actualicen
     }
 
     getState() {
@@ -143,14 +151,18 @@ export class StateManager {
             };
 
             if (data.settings) {
-                this.settings = data.settings;
+                this.settings = { ...DEFAULT_SETTINGS, ...data.settings };
             }
 
             Object.keys(this.state).forEach(key => {
-                StorageService.set(key, this.state[key]);
+                // Excluir la clave de versión al guardar
+                if (key !== 'version') {
+                    StorageService.set(key, this.state[key]);
+                }
             });
             StorageService.set(STORAGE_KEYS.SETTINGS, this.settings);
-            
+            StorageService.set('version', CONFIG.STORAGE_VERSION);
+
             this.notify();
             return true;
         } catch (error) {

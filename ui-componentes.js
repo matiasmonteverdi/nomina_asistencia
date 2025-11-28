@@ -2,21 +2,23 @@
 // UI COMPONENTS - Componentes de interfaz
 // ============================================
 
-import { DateUtils, TimeCalculator } from './utils.js';
+import * as Utils from './utils.js';
 import { ATTENDANCE_ACTIONS, ABSENCE_TYPES } from './config.js';
 
 export class NotificationManager {
-    static show(message, type = 'success') {
+    static show(message, type = 'success', duration = 4000) {
         const container = document.getElementById('toastContainer');
+        if (!container) return;
+
         const toast = document.createElement('div');
-        
+
         const icons = {
             success: 'fa-check-circle',
             error: 'fa-exclamation-circle',
             warning: 'fa-exclamation-triangle',
             info: 'fa-info-circle'
         };
-        
+
         const bgClass = {
             success: 'bg-success',
             error: 'bg-danger',
@@ -26,217 +28,187 @@ export class NotificationManager {
 
         toast.className = `toast align-items-center text-white ${bgClass} border-0`;
         toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        toast.setAttribute('data-bs-delay', duration);
+
+        // Sanitize message slightly for innerHTML safety
+        const sanitizedMessage = message.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
         toast.innerHTML = `
             <div class="d-flex">
                 <div class="toast-body">
-                    <i class="fas ${icons[type]} me-2"></i> ${message}
+                    <i class="fas ${icons[type]} me-2"></i> ${sanitizedMessage}
                 </div>
                 <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
             </div>
         `;
 
         container.appendChild(toast);
-        const bsToast = new bootstrap.Toast(toast, { delay: 4000 });
-        bsToast.show();
 
-        toast.addEventListener('hidden.bs.toast', () => toast.remove());
+        const bootstrapToast = new bootstrap.Toast(toast, { delay: duration });
+        bootstrapToast.show();
+
+        // Eliminar el toast del DOM después de que se oculte
+        toast.addEventListener('hidden.bs.toast', () => {
+            toast.remove();
+        });
     }
 
-    static confirm(message, onConfirm) {
-        if (confirm(message)) {
+    static confirm(message, onConfirm, onCancel = () => { }) {
+        // En un entorno de aplicación real se usaría un modal de Bootstrap.
+        // Aquí usamos la función nativa para la simplicidad.
+        if (window.confirm(message)) {
             onConfirm();
+        } else {
+            onCancel();
         }
     }
 }
 
 export class UIComponents {
-    static createEmptyState(message, icon = 'fa-inbox') {
-        return `
-            <div class="empty-state text-center py-5">
-                <i class="fas ${icon} fa-4x text-muted mb-3"></i>
-                <p class="text-muted">${message}</p>
-            </div>
-        `;
+    static getModal(id) {
+        const modalElement = document.getElementById(id);
+        return modalElement ? bootstrap.Modal.getOrCreateInstance(modalElement) : null;
     }
 
-    static createTable(headers, rows, emptyMessage, tableClass = 'table-hover') {
-        if (!rows || rows.length === 0) {
-            return this.createEmptyState(emptyMessage);
+    static createTable(headers, rows, emptyMessage = 'No hay datos para mostrar') {
+        if (rows.length === 0) {
+            return UIComponents.createEmptyState(
+                emptyMessage,
+                '',
+                'fas fa-box-open'
+            );
         }
 
+        const headerRow = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+        const bodyRows = rows.join('');
+
         return `
-            <div class="table-responsive">
-                <table class="table ${tableClass}">
+            <div class="table-responsive shadow-sm">
+                <table class="table table-hover table-striped">
                     <thead>
-                        <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+                        ${headerRow}
                     </thead>
                     <tbody>
-                        ${rows.map(row => `<tr>${row}</tr>`).join('')}
+                        ${bodyRows}
                     </tbody>
                 </table>
             </div>
         `;
     }
 
-    static createBadge(text, type) {
-        return `<span class="badge bg-${type}">${text}</span>`;
-    }
-
-    static createStatusBadge(action) {
-        const config = ATTENDANCE_ACTIONS[action.toUpperCase()] || ATTENDANCE_ACTIONS.ENTRADA;
-        return `<span class="badge bg-${config.class}">${config.icon} ${config.label}</span>`;
-    }
-
-    static createEmployeeCard(employee) {
-        const status = employee.status === 'activo' ? 'status-active' : 'status-offline';
+    static createEmptyState(title, description, iconClass = 'fas fa-info-circle') {
         return `
-            <div class="col-md-4 mb-3">
-                <div class="card employee-card h-100">
-                    <div class="employee-status ${status}"></div>
-                    <div class="card-body">
-                        <h6 class="card-title">
-                            <i class="fas fa-user-circle text-primary me-2"></i>${employee.name}
-                        </h6>
-                        <p class="card-text mb-1">
-                            <small class="text-muted"><i class="fas fa-briefcase me-1"></i> ${employee.position}</small>
-                        </p>
-                        <p class="card-text mb-2">
-                            <small class="text-muted"><i class="fas fa-building me-1"></i> ${employee.department}</small>
-                        </p>
-                        ${employee.email ? `<p class="card-text mb-1"><small><i class="fas fa-envelope me-1"></i> ${employee.email}</small></p>` : ''}
-                        <div class="mt-3">
-                            <button class="btn btn-sm btn-outline-primary edit-employee" data-id="${employee.id}">
-                                <i class="fas fa-edit"></i> Editar
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger delete-employee" data-id="${employee.id}">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    static createKPI(label, value, icon, gradient) {
-        return `
-            <div class="col-md-3 mb-3">
-                <div class="stat-card ${gradient}">
-                    <div class="stat-label"><i class="fas ${icon} me-2"></i>${label}</div>
-                    <div class="stat-value">${value}</div>
-                </div>
-            </div>
-        `;
-    }
-
-    static createPayrollReceipt(payment) {
-        return `
-            <div class="card mt-4 border-success">
-                <div class="card-header bg-success text-white">
-                    <h6 class="mb-0"><i class="fas fa-file-invoice-dollar me-2"></i> Recibo de Nómina Generado</h6>
-                </div>
-                <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <p class="mb-2"><strong>Empleado:</strong> ${payment.employeeName}</p>
-                            <p class="mb-2"><strong>Período:</strong> ${payment.period} - ${payment.month}</p>
-                            <p class="mb-2"><strong>Horas:</strong> ${payment.hours}</p>
-                            <p class="mb-2"><strong>Tarifa/hora:</strong> $${payment.hourlyRate.toFixed(2)}</p>
-                        </div>
-                        <div class="col-md-6">
-                            <p class="mb-2"><strong>Salario base:</strong> $${payment.baseSalary.toFixed(2)}</p>
-                            <p class="mb-2 text-success"><strong>Bonificaciones:</strong> +$${payment.bonuses.toFixed(2)}</p>
-                            <p class="mb-2 text-danger"><strong>Deducciones:</strong> -$${payment.deductions.toFixed(2)}</p>
-                            <p class="mb-2 text-danger"><strong>Impuestos:</strong> -$${payment.taxes.toFixed(2)}</p>
-                        </div>
-                    </div>
-                    <hr>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h5>Salario Bruto: <span class="text-primary">$${payment.grossSalary.toFixed(2)}</span></h5>
-                        </div>
-                        <div class="col-md-6 text-end">
-                            <h5>Salario Neto: <span class="text-success">$${payment.netSalary.toFixed(2)}</span></h5>
-                        </div>
-                    </div>
-                    <div class="mt-3">
-                        <button class="btn btn-outline-primary" onclick="window.print()">
-                            <i class="fas fa-print me-1"></i> Imprimir Recibo
-                        </button>
-                    </div>
-                </div>
+            <div class="card p-4 my-4 empty-state">
+                <i class="${iconClass} fa-4x text-muted mb-3"></i>
+                <h5 class="card-title text-muted">${title}</h5>
+                <p class="card-text text-muted">${description}</p>
             </div>
         `;
     }
 }
 
 export class FormHandler {
-    static getFormData(formId) {
-        const form = document.getElementById(formId);
-        if (!form) return null;
-
-        const formData = new FormData(form);
-        const data = {};
-        
-        for (const [key, value] of formData.entries()) {
-            data[key] = value;
-        }
-        
-        return data;
-    }
-
     static clearForm(formId) {
         const form = document.getElementById(formId);
         if (form) {
             form.reset();
         }
     }
-
-    static setFormData(formId, data) {
-        Object.entries(data).forEach(([key, value]) => {
-            const element = document.getElementById(key);
-            if (element) {
-                element.value = value;
-            }
-        });
-    }
 }
 
 export class SelectPopulator {
-    static populateEmployeeSelects(employees, selectIds) {
-        const options = employees.map(e =>
-            `<option value="${e.id}">${e.name} - ${e.position}</option>`
-        ).join('');
-
-        selectIds.forEach(id => {
-            const select = document.getElementById(id);
-            if (select) {
-                const currentValue = select.value;
-                const isFilter = id.includes('Filter') || id.includes('report');
-                const defaultOption = isFilter
-                    ? '<option value="">Todos los empleados</option>'
-                    : '<option value="">Seleccionar empleado...</option>';
-                
-                select.innerHTML = defaultOption + options;
-                if (currentValue) select.value = currentValue;
-            }
-        });
-    }
-
+    /** Popula un select HTML con opciones simples (value y label) */
     static populateOptions(selectId, options, defaultText = 'Seleccionar...') {
         const select = document.getElementById(selectId);
         if (!select) return;
 
-        const optionsHTML = options.map(opt => {
-            if (typeof opt === 'string') {
+        const optionsArray = Array.isArray(options) ? options : Object.entries(options);
+
+        const optionsHTML = optionsArray.map(opt => {
+            if (Array.isArray(opt)) {
+                // Es un par [key, value] de un objeto mapeado (ej. CONFIG.CONTRACT_TYPES)
+                const [key, value] = opt;
+                if (typeof value === 'object' && value.label) {
+                    // Si el valor es un objeto con label (ej. ABSENCE_TYPES)
+                    return `<option value="${key}">${value.label}</option>`;
+                }
+                return `<option value="${key}">${value}</option>`;
+            } else if (typeof opt === 'string' || typeof opt === 'number') {
+                // Es una lista de strings/números
                 return `<option value="${opt}">${opt}</option>`;
             } else if (opt.id && opt.name) {
+                // Es un objeto con id y name (ej. Department)
                 return `<option value="${opt.id}">${opt.name}</option>`;
+            } else if (opt.value && opt.label) {
+                // Es un objeto con value y label
+                return `<option value="${opt.value}">${opt.label}</option>`;
             }
-            return `<option value="${opt.value}">${opt.label}</option>`;
+            return '';
         }).join('');
 
-        select.innerHTML = `<option value="">${defaultText}</option>${optionsHTML}`;
+        // Preserva la opción por defecto si el select ya tiene una, o crea una nueva.
+        let defaultOption = select.querySelector('option[value=""]') || `<option value="">${defaultText}</option>`;
+        if (typeof defaultOption === 'object') {
+            defaultOption = defaultOption.outerHTML;
+        }
+
+        select.innerHTML = defaultOption + optionsHTML;
+    }
+
+    /** Popula selects con opciones de empleados activos */
+    static populateEmployeeSelects(employees, selectIds) {
+        selectIds.forEach(id => {
+            const select = document.getElementById(id);
+            if (select) {
+                const optionsHTML = employees.map(emp =>
+                    `<option value="${emp.id}">${emp.name}</option>`
+                ).join('');
+
+                const defaultOption = select.querySelector('option[value=""]');
+                select.innerHTML = '';
+                if (defaultOption) select.appendChild(defaultOption);
+                select.innerHTML += optionsHTML;
+            }
+        });
+    }
+
+    /** Popula selects con horas de un rango (usado en configuración) */
+    static populateTimeSelects(selectIds, start, end) {
+        // Asegura que los valores sean en formato HH:MM
+        const startHour = parseInt(start.split(':')[0]);
+        const endHour = parseInt(end.split(':')[0]);
+        const times = [];
+
+        for (let h = startHour; h <= endHour; h++) {
+            const hourString = h.toString().padStart(2, '0');
+            // Incluye medias horas para mayor flexibilidad
+            times.push(`${hourString}:00`);
+            if (h < endHour) { // No agregar :30 después de la hora final
+                times.push(`${hourString}:30`);
+            }
+        }
+
+        selectIds.forEach(id => {
+            const select = document.getElementById(id);
+            if (select) {
+                const optionsHTML = times.map(time => `<option value="${time}">${time}</option>`).join('');
+                const currentValue = select.value;
+
+                const defaultOption = select.querySelector('option[value=""]');
+                select.innerHTML = '';
+                if (defaultOption) select.appendChild(defaultOption);
+                select.innerHTML += optionsHTML;
+
+                // Restablecer el valor si es válido
+                if (select.options.length > 1 && (!currentValue || !times.includes(currentValue))) {
+                    select.value = select.options[1].value;
+                } else if (currentValue) {
+                    select.value = currentValue;
+                }
+            }
+        });
     }
 }
 
@@ -249,7 +221,7 @@ export class ThemeManager {
     static setTheme(theme) {
         document.body.setAttribute('data-theme', theme);
         localStorage.setItem('theme', theme);
-        
+
         const icon = theme === 'light' ? 'fa-moon' : 'fa-sun';
         const themeToggle = document.querySelector('#themeToggle i');
         if (themeToggle) {
@@ -269,10 +241,11 @@ export class ClockManager {
         const updateClock = () => {
             const clockElement = document.getElementById('currentDateTime');
             if (clockElement) {
-                clockElement.textContent = DateUtils.getCurrentDateTime();
+                clockElement.textContent = Utils.DateUtils.getCurrentDateTime();
             }
         };
 
+        // Renderiza inmediatamente y luego actualiza cada segundo
         updateClock();
         setInterval(updateClock, 1000);
     }

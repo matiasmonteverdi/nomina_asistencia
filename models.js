@@ -43,11 +43,26 @@ export class Absence {
         this.id = data.id || Date.now();
         this.employeeId = data.employeeId;
         this.employeeName = data.employeeName;
-        this.dateStart = data.dateStart;
-        this.dateEnd = data.dateEnd;
-        this.days = data.days;
+        this.startDate = data.startDate;
+        this.endDate = data.endDate;
         this.type = data.type;
-        this.reason = data.reason || '';
+        this.notes = data.notes || '';
+        this.createdAt = data.createdAt || new Date().toISOString();
+    }
+
+    toJSON() {
+        return { ...this };
+    }
+}
+
+export class Shift {
+    constructor(data) {
+        this.id = data.id || Date.now();
+        this.employeeId = data.employeeId;
+        this.employeeName = data.employeeName;
+        this.day = data.day;
+        this.startTime = data.startTime;
+        this.endTime = data.endTime;
         this.createdAt = data.createdAt || new Date().toISOString();
     }
 
@@ -83,6 +98,21 @@ export class Bonus {
     constructor(amount, reason = '') {
         this.amount = amount;
         this.reason = reason;
+        this.date = new Date().toISOString();
+    }
+
+    toJSON() {
+        return { ...this };
+    }
+}
+
+export class Deduction {
+    constructor(amount, reason = '') {
+        this.amount = amount;
+        this.reason = reason;
+        this.date = new Date().toISOString();
+    }
+
     toJSON() {
         return { ...this };
     }
@@ -92,19 +122,7 @@ export class Department {
     constructor(data) {
         this.id = data.id || Date.now();
         this.name = data.name;
-    }
-
-    toJSON() {
-        return { ...this };
-    }
-}
-
-
-export class Deduction {
-    constructor(amount, reason = '') {
-        this.amount = amount;
-        this.reason = reason;
-        this.date = new Date().toISOString();
+        this.createdAt = data.createdAt || new Date().toISOString();
     }
 
     toJSON() {

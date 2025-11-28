@@ -41,135 +41,164 @@ export class DateUtils {
         return new Date(date).toLocaleString('es-ES', { month: 'long' });
     }
 
+    static getMonthNames() {
+        return Array.from({ length: 12 }, (_, i) => new Date(2000, i, 1).toLocaleString('es-ES', { month: 'long' }));
+    }
+
     static getMonthYear(date) {
-        return new Date(date).toLocaleString('es-ES', { 
-            month: 'long', 
-            year: 'numeric' 
+        return new Date(date).toLocaleString('es-ES', {
+            month: 'long',
+            year: 'numeric'
         });
     }
 
-    static calculateDaysBetween(startDate, endDate) {
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        return Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    static combineDateTime(dateStr, timeStr) {
+        // Combina una fecha 'YYYY-MM-DD' y una hora 'HH:MM'
+        return new Date(`${dateStr}T${timeStr}:00`).toISOString();
     }
 }
 
 export class TimeCalculator {
-    static calculateHours(startTime, endTime) {
-        const ms = new Date(endTime) - new Date(startTime);
-        return (ms / (1000 * 60 * 60)).toFixed(2);
+    static getMinutes(timestamp) {
+        return new Date(timestamp).getHours() * 60 + new Date(timestamp).getMinutes();
     }
 
-    static isLate(timestamp, workStartTime, toleranceMinutes = 15) {
-        const time = new Date(timestamp);
-        const [hours, minutes] = workStartTime.split(':').map(Number);
-        const threshold = new Date(time);
-        threshold.setHours(hours, minutes + toleranceMinutes, 0, 0);
-        return time > threshold;
+    static timeToMinutes(timeStr) {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        return hours * 60 + minutes;
     }
 
-    static calculateWorkHours(attendanceRecords) {
-        let totalHours = 0;
-        let entry = null;
+    /**
+     * Calcula la duración en milisegundos entre dos timestamps.
+     */
+    static getDuration(start, end) {
+        return new Date(end).getTime() - new Date(start).getTime();
+    }
+
+    /**
+     * Formatea una duración en milisegundos a 'Hh Mmin'
+     */
+    static formatDuration(ms) {
+        if (ms < 0) return '0h 0min';
+        const totalMinutes = Math.floor(ms / (1000 * 60));
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        return `${hours}h ${minutes}min`;
+    }
+
+    /**
+     * Calcula las horas totales trabajadas a partir de los registros.
+     */
+    static calculateTotalWorkHours(records) {
+        let totalMs = 0;
+        let entryTime = null;
         let breakStart = null;
-        let breakTime = 0;
 
-        const sortedRecords = [...attendanceRecords].sort(
-            (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
-        );
+        const sortedRecords = records.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-        sortedRecords.forEach(record => {
-            switch(record.action) {
-                case 'entrada':
-                    entry = new Date(record.timestamp);
-                    break;
-                case 'salida':
-                    if (entry) {
-                        const hours = parseFloat(
-                            this.calculateHours(entry, record.timestamp)
-                        );
-                        totalHours += hours - (breakTime / 60);
-                        entry = null;
-                        breakTime = 0;
-                    }
-                    break;
-                case 'break_start':
-                    breakStart = new Date(record.timestamp);
-                    break;
-                case 'break_end':
-                    if (breakStart) {
-                        breakTime += (new Date(record.timestamp) - breakStart) / (1000 * 60);
-                        breakStart = null;
-                    }
-                    break;
+        for (const record of sortedRecords) {
+            const timestamp = new Date(record.timestamp).getTime();
+
+            if (record.action.type === 'ENTRADA') {
+                entryTime = timestamp;
+            } else if (record.action.type === 'BREAK_START') {
+                breakStart = timestamp;
+                if (entryTime) {
+                    // Acumula tiempo trabajado antes del break
+                    totalMs += (breakStart - entryTime);
+                    entryTime = null; // El break invalida la entrada
+                }
+            } else if (record.action.type === 'BREAK_END') {
+                breakStart = null;
+                entryTime = timestamp; // El fin del break es una nueva entrada efectiva
+            } else if (record.action.type === 'SALIDA') {
+                if (entryTime) {
+                    totalMs += (timestamp - entryTime);
+                }
+                entryTime = null;
+                breakStart = null;
             }
+        }
+
+        // Retorna las horas en una unidad estándar, por ejemplo, horas
+        return totalMs / (1000 * 60 * 60);
+    }
+
+    /**
+     * Determina si una hora de entrada es tarde.
+     */
+    static isLate(timestamp, workStartTime, toleranceMinutes) {
+        const checkInTime = TimeCalculator.getMinutes(timestamp);
+        const startTime = TimeCalculator.timeToMinutes(workStartTime);
+
+        return checkInTime > (startTime + toleranceMinutes);
+    }
+
+    /**
+     * Calcula los días naturales entre dos fechas (incluyendo la fecha de inicio).
+     */
+    static getDaysBetweenDates(startDate, endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays + 1; // +1 para incluir el día de inicio
+    }
+
+    /**
+     * Calcula las horas trabajadas en un mes específico. (Simplificado)
+     */
+    static calculateMonthlyWorkHours(attendanceRecords, employeeId, month, year) {
+        const monthRecords = attendanceRecords.filter(rec => {
+            const date = new Date(rec.timestamp);
+            return rec.employeeId === employeeId &&
+                date.getMonth() + 1 == month &&
+                date.getFullYear() == year;
         });
 
-        return totalHours.toFixed(2);
+        // En una app real, esta función sería mucho más compleja para gestionar turnos, breaks, etc.
+        // Aquí simulamos que el cálculo getTotalHoursWorked puede manejar un subconjunto de registros.
+        return TimeCalculator.calculateTotalWorkHours(monthRecords);
     }
 }
 
 export class Validator {
-    static required(value, fieldName = 'Campo') {
-        if (value === null || 
-            value === undefined || 
-            (typeof value === 'string' && value.trim() === '')) {
-            throw new Error(`${fieldName} es requerido`);
+    static required(value, fieldName) {
+        if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '') || (typeof value === 'number' && isNaN(value))) {
+            throw new Error(`El campo **${fieldName}** es obligatorio.`);
         }
-        return true;
-    }
-
-    static number(value, fieldName = 'Campo') {
-        const num = parseFloat(value);
-        if (isNaN(num) || num < 0) {
-            throw new Error(
-                `${fieldName} debe ser un número válido mayor o igual a 0`
-            );
-        }
-        return num;
-    }
-
-    static date(value, fieldName = 'Fecha') {
-        const date = new Date(value);
-        if (isNaN(date.getTime())) {
-            throw new Error(`${fieldName} no es válida`);
-        }
-        return date;
     }
 
     static email(value) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (value && !emailRegex.test(value)) {
-            throw new Error('Email no es válido');
+        if (!emailRegex.test(value)) {
+            throw new Error('El formato del correo electrónico es inválido.');
         }
-        return true;
     }
 
-    static time(value, fieldName = 'Hora') {
-        const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
-        if (value && !timeRegex.test(value)) {
-            throw new Error(`${fieldName} no es válida (formato HH:MM)`);
+    static number(value, fieldName) {
+        if (isNaN(value) || value === null) {
+            throw new Error(`El campo **${fieldName}** debe ser un número.`);
         }
-        return true;
+        if (value < 0) {
+            throw new Error(`El campo **${fieldName}** no puede ser negativo.`);
+        }
     }
 
-    static dateRange(startDate, endDate) {
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        if (end < start) {
-            throw new Error('La fecha de fin debe ser posterior a la fecha de inicio');
+    static dateRange(startDateStr, endDateStr) {
+        const startDate = new Date(startDateStr);
+        const endDate = new Date(endDateStr);
+
+        if (startDate.getTime() > endDate.getTime()) {
+            throw new Error('La fecha de fin no puede ser anterior a la fecha de inicio.');
         }
-        return true;
     }
 }
 
 export class FileUtils {
-    static downloadJSON(data, filename) {
-        const blob = new Blob(
-            [JSON.stringify(data, null, 2)], 
-            { type: 'application/json' }
-        );
+    static exportJson(data, filename) {
+        const jsonStr = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -180,8 +209,12 @@ export class FileUtils {
         URL.revokeObjectURL(url);
     }
 
-    static readJSONFile(file) {
+    static importJson(file) {
         return new Promise((resolve, reject) => {
+            if (file.type !== 'application/json') {
+                return reject(new Error('Tipo de archivo no válido. Debe ser un archivo JSON.'));
+            }
+
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
@@ -227,15 +260,11 @@ export class DOMUtils {
 
 export class NumberUtils {
     static formatCurrency(amount, decimals = 2) {
-        return amount.toFixed(decimals);
+        // Formato simple de moneda (ej. 1,500.00)
+        return amount.toLocaleString('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
     }
 
     static sumArray(arr) {
         return arr.reduce((sum, val) => sum + val, 0);
-    }
-
-    static average(arr) {
-        if (arr.length === 0) return 0;
-        return this.sumArray(arr) / arr.length;
     }
 }

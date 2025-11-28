@@ -2,8 +2,8 @@
 // EVENT CONTROLLERS - Controladores de eventos
 // ============================================
 
-import { Validator, DateUtils, TimeCalculator, FileUtils } from './utils.js';
-import { NotificationManager, FormHandler } from './ui-components.js';
+import { Validator, DateUtils, TimeCalculator, FileUtils, DOMUtils } from './utils.js'; // Agregado DOMUtils
+import { NotificationManager, FormHandler, UIComponents } from './ui-componentes.js'; // Ruta corregida
 
 export class EmployeeController {
     constructor(services, renderer) {
@@ -13,7 +13,7 @@ export class EmployeeController {
 
     async handleAdd(e) {
         e.preventDefault();
-        
+
         try {
             const employeeData = {
                 name: document.getElementById('employeeName').value.trim(),
@@ -39,7 +39,7 @@ export class EmployeeController {
 
             const modal = bootstrap.Modal.getInstance(document.getElementById('employeeModal'));
             if (modal) modal.hide();
-            
+
             FormHandler.clearForm('employeeForm');
         } catch (error) {
             NotificationManager.show(error.message, 'error');
@@ -48,7 +48,7 @@ export class EmployeeController {
 
     async handleEdit(e) {
         e.preventDefault();
-        
+
         try {
             const employeeId = parseInt(document.getElementById('editEmployeeId').value);
             const updates = {
@@ -97,6 +97,51 @@ export class EmployeeController {
             () => {
                 this.services.employee.delete(employeeId);
                 NotificationManager.show(`✅ Empleado ${employee.name} eliminado correctamente`);
+            }
+        );
+    }
+
+    handleExport() {
+        try {
+            const data = this.services.stateManager.exportData();
+            const filename = `attendance-backup-${new Date().toISOString().split('T')[0]}.json`;
+            FileUtils.downloadJSON(data, filename);
+            NotificationManager.show('✅ Datos exportados correctamente');
+        } catch (error) {
+            NotificationManager.show('Error al exportar datos', 'error');
+        }
+    }
+
+    async handleImport() {
+        const fileInput = document.getElementById('restoreFile');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            NotificationManager.show('Por favor selecciona un archivo', 'warning');
+            return;
+        }
+
+        try {
+            const data = await FileUtils.readJSONFile(file);
+            const success = this.services.stateManager.importData(data);
+
+            if (success) {
+                NotificationManager.show('✅ Datos importados correctamente');
+                fileInput.value = '';
+            } else {
+                NotificationManager.show('Error al importar datos', 'error');
+            }
+        } catch (error) {
+            NotificationManager.show(error.message, 'error');
+        }
+    }
+
+    handleClearAllData() {
+        NotificationManager.confirm(
+            '⚠️ ADVERTENCIA: Esto eliminará TODOS los datos del sistema. Esta acción no se puede deshacer. ¿Estás seguro?',
+            () => {
+                this.services.stateManager.clearAllData();
+                NotificationManager.show('🗑️ Todos los datos han sido eliminados', 'warning');
             }
         );
     }
@@ -226,7 +271,9 @@ export class PayrollController {
             this.services.payroll.clearDeduction(employee.name);
 
             NotificationManager.show('✅ Nómina calculada y guardada.');
-            document.getElementById('payrollResult').innerHTML = UIComponents.createPayrollReceipt(finalPayment);
+
+            const receiptHTML = UIComponents.createPayrollReceipt(finalPayment);
+            document.getElementById('payrollResult').innerHTML = receiptHTML;
 
         } catch (error) {
             NotificationManager.show(error.message, 'error');
@@ -317,5 +364,21 @@ export class DepartmentController {
                 NotificationManager.show(`✅ Departamento ${department.name} eliminado correctamente`);
             }
         );
+    }
+}
+
+export class SettingsController {
+    constructor(services, renderer) {
+        this.services = services;
+        this.renderer = renderer;
+    }
+
+    handleUpdate(key, value) {
+        try {
+            this.services.settings.update(key, value);
+            NotificationManager.show(`✅ Configuración de ${key} actualizada.`, 'info');
+        } catch (error) {
+            NotificationManager.show(error.message, 'error');
+        }
     }
 }

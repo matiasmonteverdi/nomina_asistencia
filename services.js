@@ -2,8 +2,8 @@
 // BUSINESS SERVICES - Lógica de negocio
 // ============================================
 
-import { Employee, AttendanceRecord, Absence, PayrollPayment, Bonus, Deduction, Department } from './models.js';
-import { TimeCalculator, DateUtils } from './utils.js';
+import * as Models from './models.js';
+import * as Utils from './utils.js';
 
 export class EmployeeService {
     constructor(stateManager) {
@@ -11,7 +11,7 @@ export class EmployeeService {
     }
 
     add(employeeData) {
-        const employee = new Employee(employeeData);
+        const employee = new Models.Employee(employeeData);
         const employees = [...this.stateManager.state.employees, employee];
         this.stateManager.updateState({ employees });
         return employee;
@@ -19,8 +19,8 @@ export class EmployeeService {
 
     update(id, updates) {
         const employees = this.stateManager.state.employees.map(emp =>
-            emp.id === id 
-                ? { ...emp, ...updates, updatedAt: new Date().toISOString() } 
+            emp.id === id
+                ? { ...emp, ...updates, updatedAt: new Date().toISOString() }
                 : emp
         );
         this.stateManager.updateState({ employees });
@@ -44,9 +44,7 @@ export class EmployeeService {
     }
 
     getActive() {
-        return this.stateManager.state.employees.filter(
-            emp => emp.status === 'activo'
-        );
+        return this.stateManager.state.employees.filter(emp => emp.status === 'activo');
     }
 }
 
@@ -55,73 +53,81 @@ export class AttendanceService {
         this.stateManager = stateManager;
     }
 
-    addRecord(recordData) {
-        const record = new AttendanceRecord(recordData);
+    addRecord(employeeId, employeeName, action, timestamp, notes) {
+        const record = new Models.AttendanceRecord({
+            employeeId,
+            employeeName,
+            action,
+            timestamp,
+            notes
+        });
         const attendance = [...this.stateManager.state.attendance, record];
         this.stateManager.updateState({ attendance });
         return record;
     }
 
-    getEmployeeRecordsToday(employeeId) {
-        const today = new Date().toDateString();
-        return this.stateManager.state.attendance.filter(record =>
-            record.employeeId === employeeId &&
-            new Date(record.timestamp).toDateString() === today
+    deleteRecord(id) {
+        const attendance = this.stateManager.state.attendance.filter(
+            rec => rec.id !== id
         );
+        this.stateManager.updateState({ attendance });
+    }
+
+    clearEmployeeRecords(employeeId) {
+        const attendance = this.stateManager.state.attendance.filter(
+            rec => rec.employeeId !== employeeId
+        );
+        this.stateManager.updateState({ attendance });
     }
 
     getTodayRecords() {
-        return this.stateManager.state.attendance.filter(record =>
-            DateUtils.isToday(record.timestamp)
+        return this.stateManager.state.attendance.filter(rec =>
+            Utils.DateUtils.isToday(rec.timestamp)
         );
     }
 
-    getRecordsByDateRange(startDate, endDate) {
-        const start = new Date(startDate).getTime();
-        const end = new Date(endDate).getTime();
-        
-        return this.stateManager.state.attendance.filter(record => {
-            const recordDate = new Date(record.timestamp).getTime();
-            return recordDate >= start && recordDate <= end;
-        });
-    }
-
-    calculateHoursForEmployee(employeeId, month, year) {
-        const records = this.stateManager.state.attendance.filter(record => {
-            const recordDate = new Date(record.timestamp);
-            return record.employeeId === employeeId &&
-                recordDate.getMonth() === month &&
-                recordDate.getFullYear() === year;
-        });
-
-        const dayGroups = this.groupRecordsByDay(records);
-        let totalHours = 0;
-
-        Object.values(dayGroups).forEach(dayRecords => {
-            const hours = parseFloat(TimeCalculator.calculateWorkHours(dayRecords));
-            totalHours += hours;
-        });
-
-        return totalHours;
-    }
-
-    groupRecordsByDay(records) {
-        const groups = {};
-        records.forEach(record => {
-            const day = new Date(record.timestamp).toDateString();
-            if (!groups[day]) groups[day] = [];
-            groups[day].push(record);
-        });
-        return groups;
-    }
-
-    isLateEntry(record, settings) {
-        if (record.action !== 'entrada') return false;
-        return TimeCalculator.isLate(
-            record.timestamp,
-            settings.workStartTime,
-            settings.lateToleranceMinutes
+    getEmployeeRecords(employeeId) {
+        return this.stateManager.state.attendance.filter(
+            rec => rec.employeeId === employeeId
         );
+    }
+
+    getLastAction(employeeId) {
+        const records = this.getEmployeeRecords(employeeId);
+        // Ordena por timestamp descendente para obtener el más reciente
+        const sortedRecords = records.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        return sortedRecords.length > 0 ? sortedRecords[0] : null;
+    }
+
+    getSuggestedAction(employeeId, settings) {
+        const lastRecord = this.getLastAction(employeeId);
+
+        // Asumiendo que ATTENDANCE_ACTIONS está en el config o se pasa
+        const ACTIONS = settings.ATTENDANCE_ACTIONS;
+
+        if (!lastRecord || lastRecord.action.type === 'SALIDA' || lastRecord.action.type === 'BREAK_END') {
+            return ACTIONS.ENTRADA;
+        } else if (lastRecord.action.type === 'ENTRADA') {
+            return ACTIONS.SALIDA; // O BREAK_START si la hora lo permite
+        } else if (lastRecord.action.type === 'BREAK_START') {
+            return ACTIONS.BREAK_END;
+        }
+        return ACTIONS.ENTRADA;
+    }
+
+    getTotalHoursWorked(employeeId) {
+        const records = this.getEmployeeRecords(employeeId);
+        return Utils.TimeCalculator.calculateTotalWorkHours(records);
+    }
+
+    getTotalLateChecks(employeeId) {
+        const settings = this.stateManager.getSettings();
+        const records = this.getEmployeeRecords(employeeId);
+
+        return records.filter(r =>
+            r.action.type === 'ENTRADA' &&
+            Utils.TimeCalculator.isLate(r.timestamp, settings.workStartTime, settings.lateToleranceMinutes)
+        ).length;
     }
 }
 
@@ -130,32 +136,38 @@ export class AbsenceService {
         this.stateManager = stateManager;
     }
 
-    add(absenceData) {
-        const absence = new Absence(absenceData);
+    addRecord(absenceData) {
+        const absence = new Models.Absence(absenceData);
         const absences = [...this.stateManager.state.absences, absence];
         this.stateManager.updateState({ absences });
         return absence;
     }
 
-    delete(id) {
+    deleteRecord(id) {
         const absences = this.stateManager.state.absences.filter(
             abs => abs.id !== id
         );
         this.stateManager.updateState({ absences });
     }
 
-    getByMonth(month, year) {
-        return this.stateManager.state.absences.filter(absence => {
-            const absDate = new Date(absence.dateStart);
-            return absDate.getMonth() === month && 
-                absDate.getFullYear() === year;
-        });
+    clearEmployeeRecords(employeeId) {
+        const absences = this.stateManager.state.absences.filter(
+            abs => abs.employeeId !== employeeId
+        );
+        this.stateManager.updateState({ absences });
     }
 
-    getRecent(limit = 10) {
-        return [...this.stateManager.state.absences]
-            .reverse()
-            .slice(0, limit);
+    getAll() {
+        return this.stateManager.state.absences;
+    }
+
+    getTotalDaysOff(employeeId) {
+        return this.stateManager.state.absences
+            .filter(abs => abs.employeeId === employeeId)
+            .reduce((totalDays, abs) => {
+                const days = Utils.TimeCalculator.getDaysBetweenDates(abs.startDate, abs.endDate);
+                return totalDays + days;
+            }, 0);
     }
 }
 
@@ -164,28 +176,30 @@ export class ShiftService {
         this.stateManager = stateManager;
     }
 
-    update(employeeName, day, shift) {
+    updateShift(employeeId, employeeName, day, startTime, endTime) {
         const shifts = { ...this.stateManager.state.shifts };
-        if (!shifts[employeeName]) shifts[employeeName] = {};
-        shifts[employeeName][day] = shift;
-        this.stateManager.updateState({ shifts });
-    }
 
-    getEmployeeShifts(employeeName) {
-        return this.stateManager.state.shifts[employeeName] || {};
-    }
+        if (!shifts[employeeId]) {
+            shifts[employeeId] = {};
+        }
 
-    autoFillStandard(employees, days, standardShift = '09:00-18:00') {
-        const shifts = { ...this.stateManager.state.shifts };
-        
-        employees.forEach(emp => {
-            if (!shifts[emp.name]) shifts[emp.name] = {};
-            days.forEach(day => {
-                shifts[emp.name][day] = standardShift;
-            });
+        shifts[employeeId][day] = new Models.Shift({
+            employeeId,
+            employeeName,
+            day,
+            startTime,
+            endTime
         });
 
         this.stateManager.updateState({ shifts });
+    }
+
+    getAll() {
+        return this.stateManager.state.shifts;
+    }
+
+    getEmployeeShifts(employeeId) {
+        return this.stateManager.state.shifts[employeeId] || {};
     }
 }
 
@@ -194,74 +208,110 @@ export class PayrollService {
         this.stateManager = stateManager;
     }
 
-    calculatePayment(paymentData) {
-        const { hours, hourlyRate, employeeName } = paymentData;
-        const settings = this.stateManager.settings;
+    calculatePayroll(employeeId, month, year) {
+        const settings = this.stateManager.getSettings();
+        const employee = this.stateManager.state.employees.find(emp => emp.id === employeeId);
 
-        const baseSalary = hours * hourlyRate;
-        const overtimeBonus = hours > settings.overtimeThreshold 
-            ? settings.overtimeBonus 
-            : 0;
-        
-        const bonusTotal = this.getTotalBonus(employeeName) + overtimeBonus;
-        const deductionTotal = this.getTotalDeduction(employeeName);
-        
-        const grossSalary = baseSalary + bonusTotal;
+        if (!employee) {
+            throw new Error('Empleado no encontrado.');
+        }
+
+        const period = `${month}-${year}`;
+
+        // 1. Horas trabajadas en el periodo
+        const totalHours = Utils.TimeCalculator.calculateMonthlyWorkHours(
+            this.stateManager.state.attendance,
+            employeeId,
+            month,
+            year
+        );
+
+        // 2. Salario base y tasa
+        const hourlyRate = settings.baseHourlyRate;
+        const baseSalary = totalHours * hourlyRate;
+
+        // 3. Bonificaciones y Deducciones (por nombre de empleado)
+        const employeeBonuses = this.getEmployeeBonuses(employee.name);
+        const employeeDeductions = this.getEmployeeDeductions(employee.name);
+        const totalBonuses = Utils.NumberUtils.sumArray(employeeBonuses.map(b => b.amount));
+        const totalDeductions = Utils.NumberUtils.sumArray(employeeDeductions.map(d => d.amount));
+
+        // 4. Salario Bruto
+        const grossSalary = baseSalary + totalBonuses;
+
+        // 5. Impuestos (ejemplo simple)
         const taxes = grossSalary * (settings.taxPercentage / 100);
-        const netSalary = grossSalary - taxes - deductionTotal;
 
-        return {
+        // 6. Salario Neto
+        const netSalary = grossSalary - taxes - totalDeductions;
+
+        const paymentData = {
+            employeeId,
+            employeeName: employee.name,
+            period,
+            month,
+            year,
+            hours: totalHours,
+            hourlyRate,
             baseSalary,
-            bonuses: bonusTotal,
-            deductions: deductionTotal,
+            bonuses: totalBonuses,
+            deductions: totalDeductions,
             taxes,
             grossSalary,
             netSalary
         };
-    }
 
-    addPayment(paymentData) {
-        const payment = new PayrollPayment(paymentData);
-        const payroll = [...this.stateManager.state.payroll, payment];
+        const payrollRecord = new Models.PayrollPayment(paymentData);
+        const payroll = [...this.stateManager.state.payroll, payrollRecord];
         this.stateManager.updateState({ payroll });
-        return payment;
+
+        // Limpiar bonos y deducciones temporales después de la nómina
+        this.clearBonus(employee.name);
+        this.clearDeduction(employee.name);
+
+        return payrollRecord;
     }
 
-    getPaymentHistory(filters = {}) {
-        let payroll = [...this.stateManager.state.payroll];
+    getHistory(filters) {
+        let history = this.stateManager.state.payroll;
 
         if (filters.month) {
-            payroll = payroll.filter(p => 
-                p.month.toLowerCase().includes(filters.month.toLowerCase())
-            );
+            history = history.filter(p => p.month == filters.month);
         }
-
         if (filters.year) {
-            payroll = payroll.filter(p => {
-                const [, year] = p.month.split(' de ');
-                return year === filters.year;
-            });
+            history = history.filter(p => p.year == filters.year);
         }
-
         if (filters.employeeId) {
-            payroll = payroll.filter(p => 
-                p.employeeId === parseInt(filters.employeeId)
-            );
+            history = history.filter(p => p.employeeId == filters.employeeId);
         }
-
-        return payroll;
+        return history.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
 
-    addBonus(employeeName, amount, reason = '') {
+    clearEmployeePayroll(employeeId) {
+        const payroll = this.stateManager.state.payroll.filter(
+            p => p.employeeId !== employeeId
+        );
+        this.stateManager.updateState({ payroll });
+    }
+
+    // --- Bonificaciones ---
+    addBonus(employeeName, amount, reason) {
+        const bonus = new Models.Bonus(amount, reason);
         const bonuses = { ...this.stateManager.state.bonuses };
-        if (!bonuses[employeeName]) bonuses[employeeName] = [];
-        bonuses[employeeName].push(new Bonus(amount, reason));
+
+        if (!bonuses[employeeName]) {
+            bonuses[employeeName] = [];
+        }
+        bonuses[employeeName].push(bonus);
         this.stateManager.updateState({ bonuses });
     }
 
-    getTotalBonus(employeeName) {
-        const employeeBonuses = this.stateManager.state.bonuses[employeeName] || [];
-        return employeeBonuses.reduce((sum, bonus) => sum + bonus.amount, 0);
+    getAllBonuses() {
+        return this.stateManager.state.bonuses;
+    }
+
+    getEmployeeBonuses(employeeName) {
+        return this.stateManager.state.bonuses[employeeName] || [];
     }
 
     clearBonus(employeeName) {
@@ -270,23 +320,32 @@ export class PayrollService {
         this.stateManager.updateState({ bonuses });
     }
 
-    addDeduction(employeeName, amount, reason = '') {
+    // --- Deducciones ---
+    addDeduction(employeeName, amount, reason) {
+        const deduction = new Models.Deduction(amount, reason);
         const deductions = { ...this.stateManager.state.deductions };
-        if (!deductions[employeeName]) deductions[employeeName] = [];
-        deductions[employeeName].push(new Deduction(amount, reason));
+
+        if (!deductions[employeeName]) {
+            deductions[employeeName] = [];
+        }
+        deductions[employeeName].push(deduction);
         this.stateManager.updateState({ deductions });
     }
 
-    getTotalDeduction(employeeName) {
+    getAllDeductions() {
+        return this.stateManager.state.deductions;
+    }
+
+    getEmployeeDeductions(employeeName) {
         const employeeDeductions = this.stateManager.state.deductions[employeeName] || [];
-        return employeeDeductions.reduce((sum, ded) => sum + ded.amount, 0);
+        return employeeDeductions;
     }
 
     clearDeduction(employeeName) {
         const deductions = { ...this.stateManager.state.deductions };
         delete deductions[employeeName];
         this.stateManager.updateState({ deductions });
-    };
+    }
 }
 
 export class DepartmentService {
@@ -295,7 +354,7 @@ export class DepartmentService {
     }
 
     add(departmentData) {
-        const department = new Department(departmentData);
+        const department = new Models.Department(departmentData);
         const departments = [...this.stateManager.state.departments, department];
         this.stateManager.updateState({ departments });
         return department;
@@ -303,8 +362,8 @@ export class DepartmentService {
 
     update(id, updates) {
         const departments = this.stateManager.state.departments.map(dep =>
-            dep.id === id 
-                ? { ...dep, ...updates, updatedAt: new Date().toISOString() } 
+            dep.id === id
+                ? { ...dep, ...updates, updatedAt: new Date().toISOString() }
                 : dep
         );
         this.stateManager.updateState({ departments });
@@ -319,11 +378,25 @@ export class DepartmentService {
 
     getById(id) {
         return this.stateManager.state.departments.find(
-            dep => dep.id === parseInt(id)
+            dep => dep.id === id
         );
     }
 
     getAll() {
         return this.stateManager.state.departments;
+    }
+}
+
+export class SettingsService {
+    constructor(stateManager) {
+        this.stateManager = stateManager;
+    }
+
+    get() {
+        return this.stateManager.getSettings();
+    }
+
+    update(updates) {
+        this.stateManager.updateSettings(updates);
     }
 }

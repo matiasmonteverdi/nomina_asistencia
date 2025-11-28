@@ -1,6 +1,3 @@
-/* ============================================
-   VARIABLES & RESET
-   ============================================ */
 :root {
     --primary: #2563eb;
     --success: #10b981;
@@ -446,3 +443,67 @@ body[data-theme="dark"] footer {
 }
 
 /* ============================================
+   EMPTY STATE
+   ============================================ */
+.empty-state {
+    padding: 3rem 1rem;
+    text-align: center;
+}
+
+.empty-state i {
+    opacity: 0.5;
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.card {
+    animation: fadeIn 0.3s ease;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 768px) {
+    .stat-value {
+        font-size: 2rem;
+    }
+
+    .navbar-brand {
+        font-size: 1.25rem;
+    }
+
+    .card {
+        margin-bottom: 1rem;
+    }
+}
+
+/* ============================================
+   PRINT STYLES
+   ============================================ */
+@media print {
+
+    .navbar,
+    .sidebar,
+    .btn,
+    footer {
+        display: none !important;
+    }
+
+    .card {
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+}
