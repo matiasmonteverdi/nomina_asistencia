@@ -7,7 +7,7 @@ import * as Services from './services.js';
 import * as Controllers from './controllers.js';
 import * as Renderers from './renderers.js';
 import { ClockManager, ThemeManager, SelectPopulator } from './ui-componentes.js'; // Ruta corregida
-import { CONFIG, DAYS_OF_WEEK } from './config.js';
+import { CONFIG, DAYS_OF_WEEK, CONTRACT_TYPES } from './config.js';
 import { DOMUtils } from './utils.js'; // Importar DOMUtils para debounce
 
 class App {
@@ -79,7 +79,7 @@ class App {
     }
 
     populateStaticSelects() {
-        SelectPopulator.populateOptions('employeeContractType', CONFIG.CONTRACT_TYPES); // Línea 81 corregida con el método faltante
+        SelectPopulator.populateOptions('employeeContractType', CONTRACT_TYPES);
     }
 
     setupEventListeners() {
